@@ -9,6 +9,7 @@ interface DIDViewerProps {
 }
 
 export function DIDViewer({ did, verifications }: DIDViewerProps) {
+  console.log("DIDViewer", { did, verifications });
   // Format timestamps to human-readable dates
   const formatDate = (timestamp: BigNumber | number) => {
     if (BigNumber.isBigNumber(timestamp)) {
@@ -160,9 +161,11 @@ export function DIDViewer({ did, verifications }: DIDViewerProps) {
 
           <div className="space-y-4">
             {verifications.map((verification, index) => {
+              console.log("Verification", verification);
               const isActive =
                 verification.status ===
                 ethers.utils.keccak256(ethers.utils.toUtf8Bytes("ACTIVE"));
+              console.log("isActive", isActive);
               const isExpired = BigNumber.from(verification.expiration).lt(
                 BigNumber.from(Math.floor(Date.now() / 1000))
               );
@@ -171,9 +174,11 @@ export function DIDViewer({ did, verifications }: DIDViewerProps) {
                 ethers.utils.keccak256(ethers.utils.toUtf8Bytes("REVOKED"));
 
               // Only show verification if it has a verifier address
-              if (verification.verifier === ethers.constants.AddressZero) {
-                return null;
-              }
+              // TODO - the verifier seems to not be set properly for some reason
+              // if (verification.verifier === ethers.constants.AddressZero) {
+              //   console.log("Skipping verification", verification);
+              //   return null;
+              // }
 
               return (
                 <div

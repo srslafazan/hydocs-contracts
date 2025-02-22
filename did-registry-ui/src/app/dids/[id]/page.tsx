@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { useDID } from "../../../contexts/DIDContext";
 import { ethers } from "ethers";
+import { DIDViewer } from "@/src/components/DIDViewer";
 
 interface VerificationDetails {
   level: number;
@@ -156,152 +157,48 @@ export default function DIDDetailsPage() {
         </h2>
       </div>
 
-      {/* DID Details Section */}
-      <div className="bg-white shadow-md rounded-lg overflow-hidden mb-6">
-        <div className="p-6">
-          <h3 className="text-lg font-medium text-gray-900 mb-4">
-            DID Details
-          </h3>
-
-          <div className="space-y-4">
-            <div>
-              <label className="text-sm font-medium text-gray-500">
-                DID Identifier
-              </label>
-              <p className="mt-1 font-mono text-gray-900">{didDetails.id}</p>
-            </div>
-
-            <div>
-              <label className="text-sm font-medium text-gray-500">Owner</label>
-              <p className="mt-1 font-mono text-gray-900">{didDetails.owner}</p>
-            </div>
-
-            <div>
-              <label className="text-sm font-medium text-gray-500">
-                Identifiers
-              </label>
-              <div className="mt-1 space-y-1">
-                {didDetails.identifiers.map(
-                  (identifier: string, index: number) => (
-                    <p key={index} className="font-mono text-gray-900">
-                      {identifier}
-                    </p>
-                  )
-                )}
-              </div>
-            </div>
-
-            <div>
-              <label className="text-sm font-medium text-gray-500">
-                Status
-              </label>
-              <p className="mt-1">
-                <span
-                  className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                    didDetails.active
-                      ? "bg-green-100 text-green-800"
-                      : "bg-red-100 text-red-800"
-                  }`}
-                >
-                  {didDetails.active ? "Active" : "Inactive"}
-                </span>
-              </p>
-            </div>
-
-            <div>
-              <label className="text-sm font-medium text-gray-500">
-                Created
-              </label>
-              <p className="mt-1 text-gray-900">{didDetails.created}</p>
-            </div>
-
-            <div>
-              <label className="text-sm font-medium text-gray-500">
-                Last Updated
-              </label>
-              <p className="mt-1 text-gray-900">{didDetails.updated}</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Identity Verifications Section */}
-      <div className="bg-white shadow-md rounded-lg overflow-hidden">
-        <div className="p-6">
-          <h3 className="text-lg font-medium text-gray-900 mb-2">
-            Identity Verifications
-          </h3>
-          <p className="text-gray-500 mb-6">
-            Current verification status and levels for your identity.
-          </p>
-
-          {verificationDetails ? (
-            <div className="bg-green-50 border border-green-100 rounded-lg p-6">
-              <div className="flex justify-between items-start mb-6">
-                <div>
-                  <h4 className="text-lg font-medium text-gray-900">
-                    {getVerificationLevelText(verificationDetails.level)}{" "}
-                    Verification
-                  </h4>
-                  <p className="text-gray-600 mt-1">
-                    {(() => {
-                      switch (verificationDetails.level) {
-                        case 1:
-                          return "Account ownership verification";
-                        case 2:
-                          return "Government ID verification";
-                        case 3:
-                          return "Full KYC with biometric verification";
-                        default:
-                          return "Custom verification level";
-                      }
-                    })()}
-                  </p>
-                </div>
-                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                  {verificationDetails.status}
-                </span>
-              </div>
-
-              {verificationDetails.metadata && (
-                <div className="mb-6">
-                  <h5 className="text-sm font-medium text-gray-700 mb-2">
-                    Verification Details
-                  </h5>
-                  <p className="text-gray-600">
-                    {verificationDetails.metadata}
-                  </p>
-                </div>
-              )}
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-sm font-medium text-gray-500">
-                    Verified On
-                  </p>
-                  <p className="mt-1 text-gray-900">
-                    {verificationDetails.verifiedOn}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-500">
-                    Valid Until
-                  </p>
-                  <p className="mt-1 text-gray-900">
-                    {verificationDetails.validUntil}
-                  </p>
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div className="bg-gray-50 border border-gray-200 rounded-lg p-6 text-center">
-              <p className="text-gray-600">
-                No verifications found for this identity.
-              </p>
-            </div>
-          )}
-        </div>
-      </div>
+      {didDetails && (
+        <DIDViewer
+          did={{
+            id: didDetails.id,
+            owner: didDetails.owner,
+            identifiers: didDetails.identifiers,
+            active: didDetails.active,
+            created: ethers.BigNumber.from(
+              Math.floor(new Date(didDetails.created).getTime() / 1000)
+            ),
+            updated: ethers.BigNumber.from(
+              Math.floor(new Date(didDetails.updated).getTime() / 1000)
+            ),
+          }}
+          verifications={
+            verificationDetails
+              ? [
+                  {
+                    verifier: ethers.constants.AddressZero,
+                    level: verificationDetails.level,
+                    status: ethers.utils.keccak256(
+                      ethers.utils.toUtf8Bytes("ACTIVE")
+                    ),
+                    timestamp: ethers.BigNumber.from(
+                      Math.floor(
+                        new Date(verificationDetails.verifiedOn).getTime() /
+                          1000
+                      )
+                    ),
+                    expiration: ethers.BigNumber.from(
+                      Math.floor(
+                        new Date(verificationDetails.validUntil).getTime() /
+                          1000
+                      )
+                    ),
+                    metadata: verificationDetails.metadata,
+                  },
+                ]
+              : []
+          }
+        />
+      )}
     </div>
   );
 }
