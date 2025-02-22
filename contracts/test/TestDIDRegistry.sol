@@ -15,9 +15,14 @@ contract TestDIDRegistry is DIDRegistry {
         __UUPSUpgradeable_init();
         __ReentrancyGuard_init();
 
+        // Grant all required roles to the deployer
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _grantRole(ADMIN_ROLE, msg.sender);
         _grantRole(VERIFIER_ROLE, msg.sender);
+
+        // Set up role hierarchy
+        _setRoleAdmin(VERIFIER_ROLE, DEFAULT_ADMIN_ROLE);
+        _setRoleAdmin(ADMIN_ROLE, DEFAULT_ADMIN_ROLE);
     }
 
     // Helper function for testing

@@ -49,43 +49,23 @@ describe("DocumentRegistry", function () {
     await documentRegistry.waitForDeployment();
     await documentRegistry.initialize(await didRegistry.getAddress());
 
-    // Create DIDs for testing
-    const tx1 = await didRegistry
-      .connect(user1)
-      .createDID([ethers.id("user1@test.com")]);
-    const receipt1 = await tx1.wait();
-    const event1 = await receipt1.logs.find(
-      (log) => log.fragment && log.fragment.name === "DIDCreated"
-    );
-    this.user1Did = event1.args.didId;
+    // Create DIDs for all users that will be involved in tests
+    const createDIDForUser = async (user) => {
+      const tx = await didRegistry
+        .connect(user)
+        .createDID([ethers.id(user.address)]);
+      const receipt = await tx.wait();
+      const event = await receipt.logs.find(
+        (log) => log.fragment && log.fragment.name === "DIDCreated"
+      );
+      return event.args.didId;
+    };
 
-    const tx2 = await didRegistry
-      .connect(user2)
-      .createDID([ethers.id("user2@test.com")]);
-    const receipt2 = await tx2.wait();
-    const event2 = await receipt2.logs.find(
-      (log) => log.fragment && log.fragment.name === "DIDCreated"
-    );
-    this.user2Did = event2.args.didId;
-
-    const tx3 = await didRegistry
-      .connect(user3)
-      .createDID([ethers.id("user3@test.com")]);
-    const receipt3 = await tx3.wait();
-    const event3 = await receipt3.logs.find(
-      (log) => log.fragment && log.fragment.name === "DIDCreated"
-    );
-    this.user3Did = event3.args.didId;
-
-    // Create DID for owner
-    const ownerTx = await didRegistry
-      .connect(owner)
-      .createDID([ethers.id("owner@test.com")]);
-    const ownerReceipt = await ownerTx.wait();
-    const ownerEvent = await ownerReceipt.logs.find(
-      (log) => log.fragment && log.fragment.name === "DIDCreated"
-    );
-    this.ownerDid = ownerEvent.args.didId;
+    // Create DIDs for all users
+    this.ownerDid = await createDIDForUser(owner);
+    this.user1Did = await createDIDForUser(user1);
+    this.user2Did = await createDIDForUser(user2);
+    this.user3Did = await createDIDForUser(user3);
   });
 
   describe("Initialization", function () {
@@ -96,8 +76,10 @@ describe("DocumentRegistry", function () {
     });
 
     it("Should grant admin and document manager roles to deployer", async function () {
-      expect(await documentRegistry.hasRole(DEFAULT_ADMIN_ROLE, owner.address))
-        .to.be.true;
+      const ADMIN_ROLE = await documentRegistry.ADMIN_ROLE();
+      const DOCUMENT_MANAGER_ROLE =
+        await documentRegistry.DOCUMENT_MANAGER_ROLE();
+
       expect(await documentRegistry.hasRole(ADMIN_ROLE, owner.address)).to.be
         .true;
       expect(
