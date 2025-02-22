@@ -15,6 +15,7 @@ describe("DocumentRegistry", function () {
   const VERIFIER_ROLE = ethers.id("VERIFIER_ROLE");
   const DEFAULT_ADMIN_ROLE = ethers.id("DEFAULT_ADMIN_ROLE");
   const DOCUMENT_MANAGER_ROLE = ethers.id("DOCUMENT_MANAGER_ROLE");
+  const ADMIN_ROLE = ethers.id("ADMIN_ROLE");
 
   // Document status constants
   const ACTIVE = ethers.id("ACTIVE");
@@ -66,6 +67,29 @@ describe("DocumentRegistry", function () {
     this.user1Did = await createDIDForUser(user1);
     this.user2Did = await createDIDForUser(user2);
     this.user3Did = await createDIDForUser(user3);
+
+    // Set up verifier role
+    await didRegistry.connect(owner).grantRole(VERIFIER_ROLE, verifier.address);
+
+    // Verify all DIDs
+    const oneYearFromNow = (await time.latest()) + 365 * 24 * 60 * 60;
+    for (const didId of [
+      this.ownerDid,
+      this.user1Did,
+      this.user2Did,
+      this.user3Did,
+    ]) {
+      await didRegistry
+        .connect(verifier)
+        .addVerification(didId, 1, oneYearFromNow, "0x");
+    }
+
+    // Grant document manager role to all users for testing
+    for (const user of [owner, user1, user2, user3]) {
+      await documentRegistry
+        .connect(owner)
+        .grantRole(DOCUMENT_MANAGER_ROLE, user.address);
+    }
   });
 
   describe("Initialization", function () {
@@ -76,10 +100,6 @@ describe("DocumentRegistry", function () {
     });
 
     it("Should grant admin and document manager roles to deployer", async function () {
-      const ADMIN_ROLE = await documentRegistry.ADMIN_ROLE();
-      const DOCUMENT_MANAGER_ROLE =
-        await documentRegistry.DOCUMENT_MANAGER_ROLE();
-
       expect(await documentRegistry.hasRole(ADMIN_ROLE, owner.address)).to.be
         .true;
       expect(
@@ -133,6 +153,13 @@ describe("DocumentRegistry", function () {
       expect(document.status).to.equal(ACTIVE);
       expect(document.metadata).to.equal(metadata);
       expect(document.version).to.equal(1);
+
+      // Verify roles
+      expect(await documentRegistry.hasRole(DEFAULT_ADMIN_ROLE, owner.address))
+        .to.be.true;
+      expect(
+        await documentRegistry.hasRole(DOCUMENT_MANAGER_ROLE, owner.address)
+      ).to.be.true;
     });
 
     it("Should fail to register a document without a DID", async function () {

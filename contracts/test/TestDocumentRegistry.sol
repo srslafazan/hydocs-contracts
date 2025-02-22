@@ -15,14 +15,14 @@ contract TestDocumentRegistry is DocumentRegistry {
         __UUPSUpgradeable_init();
         __ReentrancyGuard_init();
 
+        // Set up role hierarchy
+        _setRoleAdmin(ADMIN_ROLE, DEFAULT_ADMIN_ROLE);
+        _setRoleAdmin(DOCUMENT_MANAGER_ROLE, DEFAULT_ADMIN_ROLE);
+
         // Grant all required roles to the deployer
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _grantRole(ADMIN_ROLE, msg.sender);
         _grantRole(DOCUMENT_MANAGER_ROLE, msg.sender);
-
-        // Set up role hierarchy
-        _setRoleAdmin(ADMIN_ROLE, DEFAULT_ADMIN_ROLE);
-        _setRoleAdmin(DOCUMENT_MANAGER_ROLE, DEFAULT_ADMIN_ROLE);
 
         didRegistry = IDID(_didRegistry);
     }
