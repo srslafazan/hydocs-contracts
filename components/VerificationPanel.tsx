@@ -11,9 +11,7 @@ export function VerificationPanel({ didId }: VerificationPanelProps) {
   const { actions, didState, verifierState } = useDID();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [level, setLevel] = useState<VerificationLevel>(
-    VerificationLevel.BASIC
-  );
+  const [level, setLevel] = useState<VerificationLevel>(VerificationLevel.NONE);
   const [metadata, setMetadata] = useState("");
 
   const handleAddVerification = async () => {
@@ -73,6 +71,7 @@ export function VerificationPanel({ didId }: VerificationPanelProps) {
             className="w-full p-2 mt-1 border rounded"
           >
             <option value={VerificationLevel.NONE}>None</option>
+            <option value={VerificationLevel.ACCOUNT}>Account</option>
             <option value={VerificationLevel.ID}>Identity</option>
             <option value={VerificationLevel.KYC}>Complete (KYC)</option>
           </select>

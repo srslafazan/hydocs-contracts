@@ -25,7 +25,8 @@ export interface DIDMetadata {
 }
 
 export enum VerificationLevel {
-  NONE = 1,
+  NONE = 0,
+  ACCOUNT = 1,
   ID = 2,
   KYC = 3,
 }
