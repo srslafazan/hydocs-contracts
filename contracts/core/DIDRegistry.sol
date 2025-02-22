@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity 0.8.28;
 
 import {IDID} from "../interfaces/IDID.sol";
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";

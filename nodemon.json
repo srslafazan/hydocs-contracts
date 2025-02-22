@@ -1,0 +1,6 @@
+{
+  "watch": ["test/**/*.js", "contracts/**/*.sol"],
+  "ext": "js,sol",
+  "ignore": ["node_modules"],
+  "exec": "pnpm test"
+}
