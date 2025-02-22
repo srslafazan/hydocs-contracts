@@ -11,8 +11,8 @@ import {
   DOCUMENT_CONTRACT_ADDRESS,
   DID_CONTRACT_ADDRESS,
 } from "../config/web3";
-import DocumentRegistryABI from "../contracts/DocumentRegistry.json";
-import DIDRegistryABI from "../contracts/DIDRegistry.json";
+import DocumentRegistryABI from "../contracts/DocumentRegistry.sol/DocumentRegistry.json";
+import DIDRegistryABI from "../contracts/DIDRegistry.sol/DIDRegistry.json";
 import { Contract } from "ethers";
 import { useWeb3 } from "./Web3Context";
 import { Document, DocumentSignature } from "../types/documents";
@@ -264,38 +264,39 @@ export function DocumentRegistryProvider({
         setError(null);
         const contract = getDocumentRegistryContract();
 
-        // Get event signature hash - note the indexed parameters
-        const eventSignature =
-          "DocumentRegistered(bytes32 indexed,bytes32,bytes32,address indexed,bytes32 indexed,uint256,uint256)";
-        const eventTopic = ethers.id(eventSignature);
+        console.log("Contract address:", contract.target);
+        console.log("Looking for documents owned by:", owner);
 
-        // Create filter with topics - owner is the second indexed parameter (index 3)
+        // Create filter with the exact topic from the transaction logs
+        const eventTopic =
+          "0x56b1b6006a137d79a16380b47d350b1663d9c46a31a1ec0090f77f7a4327b130";
         const ownerTopic = ethers.zeroPadValue(owner.toLowerCase(), 32);
+
         const events = await provider?.getLogs({
           address: contract.target,
-          topics: [eventTopic, null, null, ownerTopic],
+          topics: [eventTopic, null, ownerTopic],
           fromBlock: 0,
           toBlock: "latest",
         });
 
+        console.log("Found events:", events);
+
         if (!events) return [];
 
-        // Fetch full document details for each event
+        // Get all documents
         const documents = await Promise.all(
           events.map(async (event) => {
             try {
-              const parsedLog = contract.interface.parseLog({
-                topics: event.topics as string[],
-                data: event.data,
-              });
-              if (!parsedLog) return null;
+              // Get documentId from the second topic
+              const documentId = event.topics[1];
+              console.log("Fetching document:", documentId);
 
-              // documentId is the first indexed parameter
-              const documentId = parsedLog.args[0];
-              console.log("Found document:", documentId);
-              return await getDocument(documentId);
+              // Get document details from contract storage
+              const doc = await getDocument(documentId);
+              console.log("Document details:", doc);
+              return doc;
             } catch (err) {
-              console.error("Error parsing log:", err);
+              console.error("Error fetching document:", err);
               return null;
             }
           })
@@ -307,6 +308,7 @@ export function DocumentRegistryProvider({
         );
         validDocuments.sort((a, b) => b.createdAt - a.createdAt);
 
+        console.log("Found documents:", validDocuments.length);
         return validDocuments;
       } catch (err: any) {
         console.error("Error fetching documents:", err);
