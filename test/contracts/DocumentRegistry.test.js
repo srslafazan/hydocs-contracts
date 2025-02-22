@@ -57,7 +57,7 @@ describe("DocumentRegistry", function () {
     const event1 = await receipt1.logs.find(
       (log) => log.fragment && log.fragment.name === "DIDCreated"
     );
-    const user1Did = event1.args.didId;
+    this.user1Did = event1.args.didId;
 
     const tx2 = await didRegistry
       .connect(user2)
@@ -66,7 +66,7 @@ describe("DocumentRegistry", function () {
     const event2 = await receipt2.logs.find(
       (log) => log.fragment && log.fragment.name === "DIDCreated"
     );
-    const user2Did = event2.args.didId;
+    this.user2Did = event2.args.didId;
 
     const tx3 = await didRegistry
       .connect(user3)
@@ -75,12 +75,17 @@ describe("DocumentRegistry", function () {
     const event3 = await receipt3.logs.find(
       (log) => log.fragment && log.fragment.name === "DIDCreated"
     );
-    const user3Did = event3.args.didId;
+    this.user3Did = event3.args.didId;
 
-    // Store DIDs for later use
-    this.user1Did = user1Did;
-    this.user2Did = user2Did;
-    this.user3Did = user3Did;
+    // Create DID for owner
+    const ownerTx = await didRegistry
+      .connect(owner)
+      .createDID([ethers.id("owner@test.com")]);
+    const ownerReceipt = await ownerTx.wait();
+    const ownerEvent = await ownerReceipt.logs.find(
+      (log) => log.fragment && log.fragment.name === "DIDCreated"
+    );
+    this.ownerDid = ownerEvent.args.didId;
   });
 
   describe("Initialization", function () {
@@ -93,6 +98,8 @@ describe("DocumentRegistry", function () {
     it("Should grant admin and document manager roles to deployer", async function () {
       expect(await documentRegistry.hasRole(DEFAULT_ADMIN_ROLE, owner.address))
         .to.be.true;
+      expect(await documentRegistry.hasRole(ADMIN_ROLE, owner.address)).to.be
+        .true;
       expect(
         await documentRegistry.hasRole(DOCUMENT_MANAGER_ROLE, owner.address)
       ).to.be.true;
@@ -129,8 +136,8 @@ describe("DocumentRegistry", function () {
         );
 
       const receipt = await tx.wait();
-      const event = receipt.events.find(
-        (e) => e.event === "DocumentRegistered"
+      const event = await receipt.logs.find(
+        (log) => log.fragment && log.fragment.name === "DocumentRegistered"
       );
       expect(event).to.not.be.undefined;
 
@@ -158,13 +165,11 @@ describe("DocumentRegistry", function () {
             metadata,
             requiredSigners
           )
-      ).to.be.revertedWith("DocumentRegistry: Owner must have a DID");
+      ).to.be.revertedWith("Owner must have an active DID");
     });
 
     it("Should register a document with required signers", async function () {
-      const user2Did = await didRegistry.getDID(user2.address);
-      const user3Did = await didRegistry.getDID(user3.address);
-      requiredSigners = [user2Did, user3Did];
+      requiredSigners = [this.user2Did.toString(), this.user3Did.toString()];
 
       const tx = await documentRegistry
         .connect(user1)
@@ -177,8 +182,8 @@ describe("DocumentRegistry", function () {
         );
 
       const receipt = await tx.wait();
-      const event = receipt.events.find(
-        (e) => e.event === "DocumentRegistered"
+      const event = await receipt.logs.find(
+        (log) => log.fragment && log.fragment.name === "DocumentRegistered"
       );
       const documentId = event.args.documentId;
 

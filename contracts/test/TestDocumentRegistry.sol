@@ -16,7 +16,9 @@ contract TestDocumentRegistry is DocumentRegistry {
         __ReentrancyGuard_init();
 
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
+        _grantRole(ADMIN_ROLE, msg.sender);
         _grantRole(DOCUMENT_MANAGER_ROLE, msg.sender);
+
         didRegistry = IDID(_didRegistry);
     }
 } 

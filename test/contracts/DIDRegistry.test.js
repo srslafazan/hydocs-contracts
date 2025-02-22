@@ -27,9 +27,8 @@ describe("DIDRegistry", function () {
     await didRegistry.waitForDeployment();
     await didRegistry.initialize();
 
-    // Grant roles
-    await didRegistry.grantRole(ADMIN_ROLE, owner.address);
-    await didRegistry.grantRole(VERIFIER_ROLE, verifier.address);
+    // Grant roles - note that owner already has DEFAULT_ADMIN_ROLE from initialization
+    await didRegistry.connect(owner).grantRole(VERIFIER_ROLE, verifier.address);
   });
 
   // Helper function to create a DID and return its ID
@@ -48,6 +47,8 @@ describe("DIDRegistry", function () {
       expect(await didRegistry.hasRole(DEFAULT_ADMIN_ROLE, owner.address)).to.be
         .true;
       expect(await didRegistry.hasRole(ADMIN_ROLE, owner.address)).to.be.true;
+      expect(await didRegistry.hasRole(VERIFIER_ROLE, owner.address)).to.be
+        .true;
       expect(await didRegistry.hasRole(VERIFIER_ROLE, verifier.address)).to.be
         .true;
     });
