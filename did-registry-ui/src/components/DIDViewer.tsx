@@ -1,5 +1,5 @@
 import React from "react";
-import { ethers } from "ethers";
+import { ethers, BigNumber } from "ethers";
 import { DIDForm } from "./DIDForm";
 import { VerificationPanel } from "./VerificationPanel";
 import { DIDDocument, Verification } from "../types/DIDRegistry";
@@ -14,7 +14,10 @@ export function DIDViewer({ did, verifications }: DIDViewerProps) {
   const { verifierState } = useDID();
 
   // Format timestamps to human-readable dates
-  const formatDate = (timestamp: number) => {
+  const formatDate = (timestamp: BigNumber | number) => {
+    if (BigNumber.isBigNumber(timestamp)) {
+      return new Date(timestamp.toNumber() * 1000).toLocaleString();
+    }
     return new Date(timestamp * 1000).toLocaleString();
   };
 
@@ -70,14 +73,14 @@ export function DIDViewer({ did, verifications }: DIDViewerProps) {
           <div className="bg-gray-50 p-4 rounded-md">
             <h4 className="text-sm font-medium text-blue-600">Created</h4>
             <p className="mt-1 text-base text-gray-900">
-              {formatDate(Number(did.created))}
+              {formatDate(did.created)}
             </p>
           </div>
 
           <div className="bg-gray-50 p-4 rounded-md">
             <h4 className="text-sm font-medium text-blue-600">Last Updated</h4>
             <p className="mt-1 text-base text-gray-900">
-              {formatDate(Number(did.updated))}
+              {formatDate(did.updated)}
             </p>
           </div>
         </div>
@@ -95,80 +98,91 @@ export function DIDViewer({ did, verifications }: DIDViewerProps) {
       </div>
 
       {verifications.length > 0 && (
-        <div className="bg-white p-6 rounded-lg shadow-md border border-gray-200">
-          <h3 className="text-xl font-bold text-blue-800 mb-6">
-            Verifications
+        <div className="bg-white p-6 rounded-lg shadow-md border border-gray-200 mt-6">
+          <h3 className="text-xl font-bold text-blue-800 mb-4">
+            Identity Verifications
           </h3>
+          <p className="text-gray-600 mb-6">
+            These verifications have been issued by authorized verifiers to
+            certify your identity.
+          </p>
 
-          <div className="grid gap-4">
-            {verifications.map((verification, index) => (
-              <div key={index} className="bg-gray-50 p-4 rounded-lg">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <span className="text-sm font-medium text-blue-600">
-                      Verifier
+          <div className="space-y-4">
+            {verifications.map((verification, index) => {
+              // Try to parse the metadata JSON
+              let parsedMetadata;
+              try {
+                parsedMetadata = JSON.parse(verification.metadata);
+              } catch (e) {
+                parsedMetadata = { details: verification.metadata };
+              }
+
+              const isActive =
+                verification.status ===
+                ethers.utils.keccak256(ethers.utils.toUtf8Bytes("ACTIVE"));
+              const isExpired = BigNumber.from(verification.expiration).lt(
+                BigNumber.from(Math.floor(Date.now() / 1000))
+              );
+
+              return (
+                <div
+                  key={index}
+                  className={`border rounded-lg p-4 ${
+                    isActive && !isExpired
+                      ? "border-green-200 bg-green-50"
+                      : "border-red-200 bg-red-50"
+                  }`}
+                >
+                  <div className="flex justify-between items-start mb-4">
+                    <div>
+                      <h4 className="font-semibold text-gray-900">
+                        Level {verification.level.toString()} Verification
+                      </h4>
+                      <p className="text-sm text-gray-600">
+                        Verified by: {verification.verifier}
+                      </p>
+                    </div>
+                    <span
+                      className={`px-3 py-1 rounded-full text-sm ${
+                        isActive && !isExpired
+                          ? "bg-green-100 text-green-800"
+                          : "bg-red-100 text-red-800"
+                      }`}
+                    >
+                      {isActive
+                        ? isExpired
+                          ? "Expired"
+                          : "Active"
+                        : "Revoked"}
                     </span>
-                    <p className="mt-1 font-mono text-base break-all">
-                      {verification.verifier}
-                    </p>
                   </div>
 
-                  <div>
-                    <span className="text-sm font-medium text-blue-600">
-                      Level
-                    </span>
-                    <p className="mt-1 text-base">
-                      {verification.level.toString()}
-                    </p>
-                  </div>
-
-                  <div>
-                    <span className="text-sm font-medium text-blue-600">
-                      Status
-                    </span>
-                    <p className="mt-1">
-                      <span
-                        className={`px-3 py-1 rounded-full ${
-                          verification.status ===
-                          ethers.utils.keccak256(
-                            ethers.utils.toUtf8Bytes("ACTIVE")
-                          )
-                            ? "bg-green-100 text-green-800"
-                            : "bg-red-100 text-red-800"
-                        }`}
-                      >
-                        {verification.status ===
-                        ethers.utils.keccak256(
-                          ethers.utils.toUtf8Bytes("ACTIVE")
-                        )
-                          ? "Active"
-                          : "Revoked"}
-                      </span>
-                    </p>
-                  </div>
-
-                  <div>
-                    <span className="text-sm font-medium text-blue-600">
-                      Expiration
-                    </span>
-                    <p className="mt-1 text-base">
-                      {formatDate(Number(verification.expiration))}
-                    </p>
-                  </div>
-
-                  {verification.metadata && (
-                    <div className="md:col-span-2">
-                      <span className="text-sm font-medium text-blue-600">
-                        Metadata
-                      </span>
-                      <p className="mt-1 text-base bg-white p-3 rounded">
-                        {verification.metadata}
+                  {parsedMetadata.details && (
+                    <div className="mt-2 text-sm text-gray-700">
+                      <p className="font-medium mb-1">Verification Notes:</p>
+                      <p className="bg-white p-3 rounded whitespace-pre-wrap break-words">
+                        {parsedMetadata.details}
                       </p>
                     </div>
                   )}
+
+                  <div className="mt-4 grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <p className="text-gray-600">Verified On</p>
+                      <p className="font-medium">
+                        {formatDate(verification.timestamp)}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-gray-600">Expires On</p>
+                      <p className="font-medium">
+                        {formatDate(verification.expiration)}
+                      </p>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}

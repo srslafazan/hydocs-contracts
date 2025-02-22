@@ -35,6 +35,7 @@ interface DIDContextType {
     loadDID: (didId: string) => Promise<void>;
     getDIDOwner: (didId: string) => Promise<string>;
     loadUserDID: () => Promise<void>;
+    service: DIDRegistryService;
   };
 }
 
@@ -240,6 +241,7 @@ export function DIDProvider({ children, service }: DIDProviderProps) {
         }
       },
       loadUserDID,
+      service,
     }),
     [service, loadDID, createDID, updateDID, loadUserDID]
   );
