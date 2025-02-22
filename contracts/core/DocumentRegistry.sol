@@ -37,7 +37,7 @@ contract DocumentRegistry is Initializable, AccessControlUpgradeable, PausableUp
     mapping(bytes32 => IDocument.Signature[]) public signatures;
 
     // Mapping from document ID to required signers (DIDs)
-    mapping(bytes32 => string[]) public requiredSigners;
+    mapping(bytes32 => bytes32[]) public requiredSigners;
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -64,22 +64,22 @@ contract DocumentRegistry is Initializable, AccessControlUpgradeable, PausableUp
         bytes32 documentType,
         uint256 expiresAt,
         string memory metadata,
-        string[] memory requiredSignerDids
+        bytes32[] memory requiredSignerDids
     ) internal returns (bytes32) {
         bytes32 documentId = keccak256(abi.encodePacked(contentHash, block.timestamp, msg.sender));
         
-        // Get owner's DID
-        bytes32 ownerDidId = keccak256(abi.encodePacked(msg.sender));
+        // Get owner's DID from the registry
+        bytes32 ownerDidId = didRegistry.getDIDByAddress(msg.sender);
+        require(ownerDidId != bytes32(0), "Owner must have an active DID");
         (, , bool active) = didRegistry.getDIDMetadata(ownerDidId);
         require(active, "Owner must have an active DID");
-        string memory ownerDid = bytes32ToString(ownerDidId);
 
         // Create document
         documents[documentId] = IDocument.Document({
             contentHash: contentHash,
             documentType: documentType,
             owner: msg.sender,
-            did: ownerDid,
+            did: ownerDidId,
             createdAt: block.timestamp,
             expiresAt: expiresAt,
             status: ACTIVE,
@@ -100,7 +100,7 @@ contract DocumentRegistry is Initializable, AccessControlUpgradeable, PausableUp
         bytes32 documentType,
         uint256 expiresAt,
         string memory metadata,
-        string[] memory requiredSignerDids
+        bytes32[] memory requiredSignerDids
     ) external override whenNotPaused returns (bytes32) {
         require(contentHash != bytes32(0), "Content hash cannot be empty");
         require(documentType != bytes32(0), "Document type cannot be empty");
@@ -140,14 +140,12 @@ contract DocumentRegistry is Initializable, AccessControlUpgradeable, PausableUp
         require(documents[documentId].status == ACTIVE, "DocumentRegistry: Document is not active");
 
         // Get signer's DID
-        bytes32 signerDidId = keccak256(abi.encodePacked(msg.sender));
+        bytes32 signerDidId = didRegistry.getDIDByAddress(msg.sender);
+        require(signerDidId != bytes32(0), "DocumentRegistry: Signer must have an active DID");
         
         // Check if signer has an active DID
         (, , bool active) = didRegistry.getDIDMetadata(signerDidId);
         require(active, "DocumentRegistry: Signer must have an active DID");
-
-        // Convert bytes32 DID ID to string DID
-        string memory signerDid = bytes32ToString(signerDidId);
 
         // Check if document has expired
         if (documents[documentId].expiresAt > 0 && block.timestamp >= documents[documentId].expiresAt) {
@@ -158,13 +156,13 @@ contract DocumentRegistry is Initializable, AccessControlUpgradeable, PausableUp
 
         // Add signature
         signatures[documentId].push(IDocument.Signature({
-            signerDid: signerDid,
+            signerDid: signerDidId,
             timestamp: block.timestamp,
             signatureType: signatureType,
             metadata: metadata
         }));
 
-        emit DocumentSigned(documentId, signerDid, signatureType, block.timestamp);
+        emit DocumentSigned(documentId, signerDidId, signatureType, block.timestamp);
     }
 
     /**
@@ -207,14 +205,14 @@ contract DocumentRegistry is Initializable, AccessControlUpgradeable, PausableUp
      * @return boolean indicating if all required signatures are present
      */
     function hasAllRequiredSignatures(bytes32 documentId) external override view returns (bool) {
-        string[] memory required = requiredSigners[documentId];
+        bytes32[] memory required = requiredSigners[documentId];
         if (required.length == 0) return true;
 
         IDocument.Signature[] memory docSignatures = signatures[documentId];
         for (uint i = 0; i < required.length; i++) {
             bool found = false;
             for (uint j = 0; j < docSignatures.length; j++) {
-                if (keccak256(bytes(required[i])) == keccak256(bytes(docSignatures[j].signerDid))) {
+                if (required[i] == docSignatures[j].signerDid) {
                     found = true;
                     break;
                 }
@@ -238,7 +236,7 @@ contract DocumentRegistry is Initializable, AccessControlUpgradeable, PausableUp
      * @param documentId ID of the document
      * @return Array of required signer DIDs
      */
-    function getRequiredSigners(bytes32 documentId) external override view returns (string[] memory) {
+    function getRequiredSigners(bytes32 documentId) external override view returns (bytes32[] memory) {
         return requiredSigners[documentId];
     }
 

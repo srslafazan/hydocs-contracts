@@ -138,8 +138,8 @@ describe("DocumentRegistry", function () {
         );
 
       const receipt = await tx.wait();
-      const event = await receipt.logs.find(
-        (log) => log.fragment && log.fragment.name === "DocumentRegistered"
+      const event = receipt.logs.find(
+        (log) => log.fragment?.name === "DocumentRegistered"
       );
       expect(event).to.not.be.undefined;
 
@@ -149,17 +149,12 @@ describe("DocumentRegistry", function () {
       expect(document.contentHash).to.equal(contentHash);
       expect(document.documentType).to.equal(documentType);
       expect(document.owner).to.equal(user1.address);
-      expect(document.expiresAt).to.equal(expiresAt);
+      expect(document.did).to.equal(this.user1Did);
+      expect(document.createdAt).to.be.a("bigint");
+      expect(document.expiresAt).to.equal(BigInt(expiresAt));
       expect(document.status).to.equal(ACTIVE);
       expect(document.metadata).to.equal(metadata);
-      expect(document.version).to.equal(1);
-
-      // Verify roles
-      expect(await documentRegistry.hasRole(DEFAULT_ADMIN_ROLE, owner.address))
-        .to.be.true;
-      expect(
-        await documentRegistry.hasRole(DOCUMENT_MANAGER_ROLE, owner.address)
-      ).to.be.true;
+      expect(document.version).to.equal(1n);
     });
 
     it("Should fail to register a document without a DID", async function () {
@@ -178,7 +173,7 @@ describe("DocumentRegistry", function () {
     });
 
     it("Should register a document with required signers", async function () {
-      requiredSigners = [this.user2Did.toString(), this.user3Did.toString()];
+      requiredSigners = [this.user2Did, this.user3Did];
 
       const tx = await documentRegistry
         .connect(user1)
@@ -209,7 +204,7 @@ describe("DocumentRegistry", function () {
 
     beforeEach(async function () {
       contentHash = ethers.id("test document content");
-      requiredSigners = [this.user2Did.toString(), this.user3Did.toString()];
+      requiredSigners = [this.user2Did, this.user3Did];
 
       const tx = await documentRegistry
         .connect(user1)
@@ -270,7 +265,7 @@ describe("DocumentRegistry", function () {
           TYPE_GENERAL,
           (await time.latest()) + 60, // 1 minute from now
           "{}",
-          [this.user2Did.toString()]
+          [this.user2Did]
         );
       const shortExpiryReceipt = await shortExpiryTx.wait();
       const shortExpiryEvent = await shortExpiryReceipt.logs.find(

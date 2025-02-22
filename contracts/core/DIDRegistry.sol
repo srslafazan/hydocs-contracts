@@ -263,6 +263,10 @@ contract DIDRegistry is Initializable, AccessControlUpgradeable, PausableUpgrade
         return (doc.created, doc.updated, doc.active);
     }
 
+    function getDIDByAddress(address owner) external view returns (bytes32) {
+        return _addressToDID[owner];
+    }
+
     // Internal functions
 
     function _isOwner(bytes32 didId) internal view returns (bool) {

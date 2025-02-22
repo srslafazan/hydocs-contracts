@@ -40,6 +40,7 @@ interface IDID {
         uint256 updated,
         bool active
     );
+    function getDIDByAddress(address owner) external view returns (bytes32);
 
     // Verification functions
     function addVerification(

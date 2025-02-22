@@ -10,7 +10,7 @@ interface IDocument {
         bytes32 contentHash;      // SHA-256 hash of document content
         bytes32 documentType;     // Type of document
         address owner;            // Document owner's address
-        string did;              // Document owner's DID
+        bytes32 did;             // Document owner's DID
         uint256 createdAt;       // Creation timestamp
         uint256 expiresAt;       // Expiration timestamp (0 for no expiration)
         bytes32 status;          // Document status
@@ -19,7 +19,7 @@ interface IDocument {
     }
 
     struct Signature {
-        string signerDid;        // Signer's DID
+        bytes32 signerDid;       // Signer's DID
         uint256 timestamp;       // Signature timestamp
         bytes32 signatureType;   // Type of signature (approve, reject, acknowledge)
         string metadata;         // Additional metadata (comments, notes)
@@ -30,13 +30,13 @@ interface IDocument {
         bytes32 contentHash,
         bytes32 documentType,
         address indexed owner,
-        string did,
+        bytes32 did,
         uint256 expiresAt
     );
 
     event DocumentSigned(
         bytes32 indexed documentId,
-        string signerDid,
+        bytes32 signerDid,
         bytes32 signatureType,
         uint256 timestamp
     );
@@ -61,7 +61,7 @@ interface IDocument {
         bytes32 documentType,
         uint256 expiresAt,
         string calldata metadata,
-        string[] calldata requiredSignerDids
+        bytes32[] calldata requiredSignerDids
     ) external returns (bytes32);
 
     /**
@@ -108,5 +108,5 @@ interface IDocument {
      * @param documentId ID of the document
      * @return Array of required signer DIDs
      */
-    function getRequiredSigners(bytes32 documentId) external view returns (string[] memory);
+    function getRequiredSigners(bytes32 documentId) external view returns (bytes32[] memory);
 } 
