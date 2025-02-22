@@ -179,6 +179,14 @@ export function DIDViewer({ did, verifications }: DIDViewerProps) {
               const isExpired = BigNumber.from(verification.expiration).lt(
                 BigNumber.from(Math.floor(Date.now() / 1000))
               );
+              const isRevoked =
+                verification.status ===
+                ethers.utils.keccak256(ethers.utils.toUtf8Bytes("REVOKED"));
+
+              // Only show verification if it has a verifier address
+              if (verification.verifier === ethers.constants.AddressZero) {
+                return null;
+              }
 
               return (
                 <div
@@ -205,11 +213,13 @@ export function DIDViewer({ did, verifications }: DIDViewerProps) {
                           : "bg-red-100 text-red-800"
                       }`}
                     >
-                      {isActive
-                        ? isExpired
-                          ? "Expired"
-                          : "Active"
-                        : "Revoked"}
+                      {isRevoked
+                        ? "Revoked"
+                        : isExpired
+                        ? "Expired"
+                        : isActive
+                        ? "Active"
+                        : "Invalid"}
                     </span>
                   </div>
 
