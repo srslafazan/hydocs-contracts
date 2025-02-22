@@ -10,7 +10,6 @@ interface IDID {
         uint256 updated;         // Last update timestamp
         bool active;             // Active status
         bytes32[] identifiers;   // Hashed identifiers (email, phone, etc)
-        mapping(bytes32 => bool) verifiedIdentifiers;
     }
 
     struct Verification {
@@ -32,13 +31,21 @@ interface IDID {
     function createDID(bytes32[] calldata identifiers) external returns (bytes32);
     function updateDID(bytes32 didId, bytes32[] calldata identifiers) external;
     function deactivateDID(bytes32 didId) external;
-    function getDID(bytes32 didId) external view returns (DIDDocument memory);
+    
+    // DID getters
+    function getDIDOwner(bytes32 didId) external view returns (address);
+    function getDIDIdentifiers(bytes32 didId) external view returns (bytes32[] memory);
+    function getDIDMetadata(bytes32 didId) external view returns (
+        uint256 created,
+        uint256 updated,
+        bool active
+    );
 
     // Verification functions
     function addVerification(
-        bytes32 didId, 
-        uint256 level, 
-        uint256 expiration, 
+        bytes32 didId,
+        uint256 level,
+        uint256 expiration,
         bytes calldata metadata
     ) external;
     
