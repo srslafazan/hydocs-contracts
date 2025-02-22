@@ -14,6 +14,7 @@ const DID_REGISTRY_ABI = {
     "function VERIFIER_ROLE() external view returns (bytes32)",
     "function ADMIN_ROLE() external view returns (bytes32)",
     "function DEFAULT_ADMIN_ROLE() external view returns (bytes32)",
+    "function getRoleMemberArray(bytes32 role) external view returns (address[])",
 
     // DID Management
     "function createDID(bytes32[] calldata identifiers) external returns (bytes32)",
@@ -303,6 +304,15 @@ export class DIDRegistryService implements DIDRegistryInterface {
     }
   }
 
+  async getRoleMemberArray(role: string): Promise<string[]> {
+    try {
+      return await this.contract.getRoleMemberArray(role);
+    } catch (error: any) {
+      console.error("Error getting role members:", error);
+      return [];
+    }
+  }
+
   async grantRole(role: string, account: string): Promise<void> {
     try {
       const tx = await this.contract.grantRole(role, account);
@@ -388,6 +398,16 @@ export class DIDRegistryService implements DIDRegistryInterface {
     } catch (error) {
       console.error("Error getting DID by owner:", error);
       return null;
+    }
+  }
+
+  async getAllDIDEvents() {
+    try {
+      const filter = this.contract.filters.DIDCreated();
+      return await this.contract.queryFilter(filter);
+    } catch (error) {
+      console.error("Error getting DID events:", error);
+      throw error;
     }
   }
 }

@@ -4,6 +4,7 @@ import { DIDForm } from "../components/DIDForm";
 import { DIDViewer } from "../components/DIDViewer";
 import { useState, useEffect } from "react";
 import { useDID } from "../contexts/DIDContext";
+import Link from "next/link";
 
 import "./globals.css";
 
@@ -21,8 +22,16 @@ export default function Home() {
     <nav className="bg-gradient-to-r from-blue-600 to-blue-800 shadow-lg mb-8 p-3">
       <div className="max-w-4xl mx-auto px-4">
         <div className="flex justify-between h-16">
-          <div className="flex items-center">
-            <h1 className="text-2xl font-semibold text-white">DID Registry</h1>
+          <div className="flex items-center space-x-8">
+            <Link href="/" className="text-2xl font-semibold text-white">
+              DID Registry
+            </Link>
+            <Link
+              href="/dids"
+              className="text-white hover:text-blue-100 transition-colors"
+            >
+              View All DIDs
+            </Link>
           </div>
           {currentDID && (
             <div className="flex items-center">

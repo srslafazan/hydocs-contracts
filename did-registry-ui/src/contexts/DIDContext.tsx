@@ -115,17 +115,45 @@ export function DIDProvider({ children, service }: DIDProviderProps) {
     async (didId: string) => {
       dispatch({ type: "SET_LOADING", payload: true });
       try {
-        const [owner, identifiers, metadata, verifications] = await Promise.all(
-          [
-            service.getDIDOwner(didId),
-            service.getDIDIdentifiers(didId),
-            service.getDIDMetadata(didId),
-            service.getVerification(
-              didId,
-              (await service.signer?.getAddress()) || ""
-            ),
-          ]
-        );
+        let verifications: Verification[] = [];
+        try {
+          // Try to get all verifiers first
+          const verifierRole = ethers.utils.keccak256(
+            ethers.utils.toUtf8Bytes("VERIFIER_ROLE")
+          );
+          const verifiers = await service.getRoleMemberArray(verifierRole);
+
+          // Get verifications from all verifiers
+          const verificationPromises = await Promise.all(
+            verifiers.map((verifier) =>
+              service.getVerification(didId, verifier)
+            )
+          );
+
+          // Filter out empty verifications
+          verifications = verificationPromises.filter(
+            (v) => v.verifier !== ethers.constants.AddressZero
+          );
+        } catch (err) {
+          console.warn(
+            "Failed to get all verifiers, falling back to current verifier:",
+            err
+          );
+          // Fall back to just getting the current verifier's verification
+          if (service.signer) {
+            const verifier = await service.signer.getAddress();
+            const verification = await service.getVerification(didId, verifier);
+            if (verification.verifier !== ethers.constants.AddressZero) {
+              verifications = [verification];
+            }
+          }
+        }
+
+        const [owner, identifiers, metadata] = await Promise.all([
+          service.getDIDOwner(didId),
+          service.getDIDIdentifiers(didId),
+          service.getDIDMetadata(didId),
+        ]);
 
         const did: DIDDocument = {
           id: didId,
@@ -137,8 +165,9 @@ export function DIDProvider({ children, service }: DIDProviderProps) {
         };
 
         dispatch({ type: "SET_DID", payload: did });
-        dispatch({ type: "SET_VERIFICATIONS", payload: [verifications] });
+        dispatch({ type: "SET_VERIFICATIONS", payload: verifications });
       } catch (error: any) {
+        console.error("Error loading DID:", error);
         dispatch({ type: "SET_ERROR", payload: error.message });
         throw error;
       } finally {

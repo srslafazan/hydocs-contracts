@@ -18,14 +18,16 @@ export function VerificationPanel({ didId }: VerificationPanelProps) {
     VerificationLevel.BASIC
   );
   const [metadata, setMetadata] = useState("");
+  const [addressToVerify, setAddressToVerify] = useState("");
+  const [targetDidId, setTargetDidId] = useState<string | null>(didId || null);
 
   // Load current verifier's verification for this DID
   useEffect(() => {
     async function loadVerification() {
       try {
-        if (!window.ethereum?.selectedAddress) return;
+        if (!window.ethereum?.selectedAddress || !targetDidId) return;
         const verification = await actions.service.getVerification(
-          didId,
+          targetDidId,
           window.ethereum.selectedAddress
         );
         if (verification.verifier !== ethers.constants.AddressZero) {
@@ -86,14 +88,53 @@ export function VerificationPanel({ didId }: VerificationPanelProps) {
       }
     }
     loadVerification();
-  }, [didId, actions.service]);
+  }, [targetDidId, actions.service]);
 
   // Format a BigNumber timestamp to a readable date string
   const formatDate = (timestamp: ethers.BigNumber) => {
     return new Date(timestamp.toNumber() * 1000).toLocaleDateString();
   };
 
+  const handleFindDID = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      if (!ethers.utils.isAddress(addressToVerify)) {
+        throw new Error("Invalid Ethereum address");
+      }
+
+      const foundDidId = await actions.service.getDIDByOwner(addressToVerify);
+      if (!foundDidId) {
+        throw new Error("No DID found for this address");
+      }
+
+      setTargetDidId(foundDidId);
+      // Load the verification for this DID
+      const verification = await actions.service.getVerification(
+        foundDidId,
+        window.ethereum?.selectedAddress || ""
+      );
+      if (verification.verifier !== ethers.constants.AddressZero) {
+        setCurrentVerification(verification);
+        setLevel(verification.level);
+      } else {
+        setCurrentVerification(null);
+      }
+    } catch (err: any) {
+      setError(err.message);
+      setTargetDidId(null);
+      setCurrentVerification(null);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleAddVerification = async () => {
+    if (!targetDidId) {
+      setError("Please find a valid DID first");
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
@@ -114,7 +155,7 @@ export function VerificationPanel({ didId }: VerificationPanelProps) {
       );
 
       await actions.addVerification(
-        didId,
+        targetDidId,
         level,
         oneYearFromNow,
         encodedMetadata
@@ -122,7 +163,7 @@ export function VerificationPanel({ didId }: VerificationPanelProps) {
 
       // Reload verification after adding
       const newVerification = await actions.service.getVerification(
-        didId,
+        targetDidId,
         window.ethereum?.selectedAddress || ""
       );
       setCurrentVerification(newVerification);
@@ -134,11 +175,16 @@ export function VerificationPanel({ didId }: VerificationPanelProps) {
   };
 
   const handleRevokeVerification = async () => {
+    if (!targetDidId) {
+      setError("No DID selected");
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
     try {
-      await actions.revokeVerification(didId);
+      await actions.revokeVerification(targetDidId);
       setCurrentVerification(null);
       setMetadata("");
     } catch (err: any) {
@@ -166,15 +212,38 @@ export function VerificationPanel({ didId }: VerificationPanelProps) {
       <div className="mb-4">
         <h3 className="text-xl font-bold text-blue-800">Verifier Actions</h3>
         <p className="text-gray-600 mt-2">
-          {currentVerification && isActive
-            ? "You have an active verification for this DID. You can update or revoke it."
-            : "You can verify this DID's identity by adding a verification."}
+          Enter an Ethereum address to verify their DID
         </p>
       </div>
 
       <div className="space-y-4">
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={addressToVerify}
+            onChange={(e) => setAddressToVerify(e.target.value)}
+            placeholder="Enter Ethereum address to verify"
+            className="flex-1 p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+          />
+          <button
+            onClick={handleFindDID}
+            disabled={loading || !addressToVerify}
+            className="px-4 py-2 text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:bg-blue-300 disabled:cursor-not-allowed"
+          >
+            {loading ? "Searching..." : "Find DID"}
+          </button>
+        </div>
+
+        {targetDidId && (
+          <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
+            <p className="text-sm text-blue-800">
+              Found DID: <span className="font-mono">{targetDidId}</span>
+            </p>
+          </div>
+        )}
+
         {currentVerification && isActive && !isExpired && (
-          <div className="bg-blue-50 border border-blue-200 rounded-md p-3 mb-3">
+          <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
             <p className="text-sm text-blue-800">
               You currently have an active verification at level{" "}
               {currentVerification.level.toString()}
@@ -185,64 +254,68 @@ export function VerificationPanel({ didId }: VerificationPanelProps) {
           </div>
         )}
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Verification Level
-          </label>
-          <select
-            value={level}
-            onChange={(e) => setLevel(Number(e.target.value))}
-            className="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
-          >
-            <option value={1}>Basic - Email and phone verification</option>
-            <option value={2}>Enhanced - Government ID verification</option>
-            <option value={3}>
-              Premium - Full KYC with biometric verification
-            </option>
-          </select>
-        </div>
+        {targetDidId && (
+          <>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Verification Level
+              </label>
+              <select
+                value={level}
+                onChange={(e) => setLevel(Number(e.target.value))}
+                className="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value={1}>Basic - Email and phone verification</option>
+                <option value={2}>Enhanced - Government ID verification</option>
+                <option value={3}>
+                  Premium - Full KYC with biometric verification
+                </option>
+              </select>
+            </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Verification Notes
-          </label>
-          <textarea
-            value={metadata}
-            onChange={(e) => setMetadata(e.target.value)}
-            placeholder="Enter details about the verification process and documents checked"
-            className="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 h-24 whitespace-pre-wrap break-words resize-y"
-          />
-        </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Verification Notes
+              </label>
+              <textarea
+                value={metadata}
+                onChange={(e) => setMetadata(e.target.value)}
+                placeholder="Enter details about the verification process and documents checked"
+                className="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 h-24 whitespace-pre-wrap break-words resize-y"
+              />
+            </div>
 
-        {error && (
-          <div className="p-3 text-sm text-red-700 bg-red-50 rounded-md">
-            {error}
-          </div>
+            {error && (
+              <div className="p-3 text-sm text-red-700 bg-red-50 rounded-md">
+                {error}
+              </div>
+            )}
+
+            <div className="flex gap-2 pt-2">
+              <button
+                onClick={handleAddVerification}
+                disabled={loading}
+                className="flex-1 px-3 py-2 text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:bg-blue-300 disabled:cursor-not-allowed transition-colors"
+              >
+                {loading
+                  ? "Processing..."
+                  : currentVerification && isActive
+                  ? "Update Verification"
+                  : "Add Verification"}
+              </button>
+
+              {currentVerification && isActive && (
+                <button
+                  onClick={handleRevokeVerification}
+                  disabled={loading}
+                  className="px-3 py-2 text-red-600 border border-red-600 rounded-md hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  {loading ? "Processing..." : "Revoke Verification"}
+                </button>
+              )}
+            </div>
+          </>
         )}
-
-        <div className="flex gap-2 pt-2">
-          <button
-            onClick={handleAddVerification}
-            disabled={loading}
-            className="flex-1 px-3 py-2 text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:bg-blue-300 disabled:cursor-not-allowed transition-colors"
-          >
-            {loading
-              ? "Processing..."
-              : currentVerification && isActive
-              ? "Update Verification"
-              : "Add Verification"}
-          </button>
-
-          {currentVerification && isActive && (
-            <button
-              onClick={handleRevokeVerification}
-              disabled={loading}
-              className="px-3 py-2 text-red-600 border border-red-600 rounded-md hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              {loading ? "Processing..." : "Revoke Verification"}
-            </button>
-          )}
-        </div>
       </div>
     </div>
   );

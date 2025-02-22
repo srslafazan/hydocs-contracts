@@ -56,6 +56,7 @@ export interface DIDRegistryInterface {
   hasRole(role: string, account: string): Promise<boolean>;
   grantRole(role: string, account: string): Promise<void>;
   revokeRole(role: string, account: string): Promise<void>;
+  getRoleMemberArray(role: string): Promise<string[]>;
 
   // System Management
   pause(): Promise<void>;

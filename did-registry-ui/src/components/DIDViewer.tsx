@@ -159,20 +159,11 @@ export function DIDViewer({ did, verifications }: DIDViewerProps) {
             Identity Verifications
           </h3>
           <p className="text-gray-600 mb-4">
-            These verifications have been issued by authorized verifiers to
-            certify your identity.
+            Current verification status and levels for your identity.
           </p>
 
           <div className="space-y-4">
             {verifications.map((verification, index) => {
-              // Try to parse the metadata JSON
-              let parsedMetadata;
-              try {
-                parsedMetadata = JSON.parse(verification.metadata);
-              } catch (e) {
-                parsedMetadata = { details: verification.metadata };
-              }
-
               const isActive =
                 verification.status ===
                 ethers.utils.keccak256(ethers.utils.toUtf8Bytes("ACTIVE"));
@@ -191,19 +182,41 @@ export function DIDViewer({ did, verifications }: DIDViewerProps) {
               return (
                 <div
                   key={index}
-                  className={`border rounded-lg p-3 ${
+                  className={`border rounded-lg p-4 ${
                     isActive && !isExpired
                       ? "border-green-200 bg-green-50"
                       : "border-red-200 bg-red-50"
                   }`}
                 >
-                  <div className="flex justify-between items-start mb-4">
+                  <div className="flex justify-between items-center">
                     <div>
                       <h4 className="font-semibold text-gray-900">
-                        Level {verification.level.toString()} Verification
+                        {(() => {
+                          switch (verification.level.toString()) {
+                            case "1":
+                              return "Basic Verification";
+                            case "2":
+                              return "Enhanced Verification";
+                            case "3":
+                              return "Premium Verification";
+                            default:
+                              return `Level ${verification.level.toString()} Verification`;
+                          }
+                        })()}
                       </h4>
-                      <p className="text-sm text-gray-600">
-                        Verified by: {verification.verifier}
+                      <p className="text-sm text-gray-600 mt-1">
+                        {(() => {
+                          switch (verification.level.toString()) {
+                            case "1":
+                              return "Email and phone verification";
+                            case "2":
+                              return "Government ID verification";
+                            case "3":
+                              return "Full KYC with biometric verification";
+                            default:
+                              return "Custom verification level";
+                          }
+                        })()}
                       </p>
                     </div>
                     <span
@@ -223,39 +236,41 @@ export function DIDViewer({ did, verifications }: DIDViewerProps) {
                     </span>
                   </div>
 
-                  {verification.metadata && (
-                    <div className="mt-2 text-sm text-gray-700">
-                      <p className="font-medium mb-1">Verification Notes:</p>
+                  {verifierState.isVerifier && verification.metadata && (
+                    <div className="mt-4 bg-white rounded-md border border-gray-100 p-3">
+                      <h5 className="text-sm font-semibold text-gray-900 mb-2">
+                        Verification Details
+                      </h5>
                       {(() => {
                         const { details, timestamp } = decodeMetadata(
                           verification.metadata
                         );
                         return (
-                          <div className="bg-white p-2 rounded">
-                            <p className="whitespace-pre-wrap break-words">
+                          <>
+                            <p className="text-sm text-gray-700 whitespace-pre-wrap break-words">
                               {details}
                             </p>
                             {timestamp && (
-                              <p className="text-xs text-gray-500 mt-1">
-                                Note added: {timestamp}
+                              <p className="text-xs text-gray-500 mt-2">
+                                Verification note added: {timestamp}
                               </p>
                             )}
-                          </div>
+                          </>
                         );
                       })()}
                     </div>
                   )}
 
-                  <div className="mt-4 grid grid-cols-2 gap-4 text-sm">
+                  <div className="mt-4 grid grid-cols-2 gap-4 text-sm bg-white rounded-md border border-gray-100 p-3">
                     <div>
-                      <p className="text-gray-600">Verified On</p>
-                      <p className="font-medium">
+                      <p className="text-gray-600 font-medium">Verified On</p>
+                      <p className="text-gray-900">
                         {formatDate(verification.timestamp)}
                       </p>
                     </div>
                     <div>
-                      <p className="text-gray-600">Expires On</p>
-                      <p className="font-medium">
+                      <p className="text-gray-600 font-medium">Valid Until</p>
+                      <p className="text-gray-900">
                         {formatDate(verification.expiration)}
                       </p>
                     </div>
