@@ -31,12 +31,55 @@ export function VerificationPanel({ didId }: VerificationPanelProps) {
         if (verification.verifier !== ethers.constants.AddressZero) {
           setCurrentVerification(verification);
           setLevel(verification.level);
-          try {
-            const parsed = JSON.parse(verification.metadata);
-            setMetadata(parsed.details || "");
-          } catch (e) {
-            setMetadata(verification.metadata || "");
+
+          const tryDecodeAbiString = (encoded: string): string | null => {
+            try {
+              return ethers.utils.defaultAbiCoder.decode(
+                ["string"],
+                encoded
+              )[0];
+            } catch (e) {
+              return null;
+            }
+          };
+
+          const tryParseJson = (str: string): any | null => {
+            try {
+              return JSON.parse(str);
+            } catch (e) {
+              return null;
+            }
+          };
+
+          let current = verification.metadata;
+          let details = "";
+
+          // Keep trying to decode and parse until we can't anymore
+          while (true) {
+            const decoded = tryDecodeAbiString(current);
+            if (!decoded) break;
+
+            const parsed = tryParseJson(decoded);
+            if (!parsed) {
+              details = decoded;
+              break;
+            }
+
+            if (parsed.details) {
+              if (
+                typeof parsed.details === "string" &&
+                parsed.details.startsWith("0x")
+              ) {
+                current = parsed.details;
+                continue;
+              }
+              details = parsed.details;
+              break;
+            }
+            break;
           }
+
+          setMetadata(details || "");
         }
       } catch (err) {
         console.error("Error loading verification:", err);
@@ -58,12 +101,13 @@ export function VerificationPanel({ didId }: VerificationPanelProps) {
       // Set expiration to 1 year from now
       const oneYearFromNow = Math.floor(Date.now() / 1000) + 365 * 24 * 60 * 60;
 
-      // Encode metadata with verification details
+      // Create metadata object with just the details
       const metadataObj = {
-        details: metadata,
+        details: metadata.trim(), // Trim whitespace
         timestamp: new Date().toISOString(),
       };
 
+      // Single encode the metadata
       const encodedMetadata = ethers.utils.defaultAbiCoder.encode(
         ["string"],
         [JSON.stringify(metadataObj)]

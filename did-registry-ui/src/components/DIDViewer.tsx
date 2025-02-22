@@ -21,6 +21,62 @@ export function DIDViewer({ did, verifications }: DIDViewerProps) {
     return new Date(timestamp * 1000).toLocaleString();
   };
 
+  // Decode and format verification metadata
+  const decodeMetadata = (
+    metadata: string
+  ): { details: string; timestamp?: string } => {
+    const tryDecodeAbiString = (encoded: string): string | null => {
+      try {
+        return ethers.utils.defaultAbiCoder.decode(["string"], encoded)[0];
+      } catch (e) {
+        return null;
+      }
+    };
+
+    const tryParseJson = (str: string): any | null => {
+      try {
+        return JSON.parse(str);
+      } catch (e) {
+        return null;
+      }
+    };
+
+    let current = metadata;
+    let result: { details: string; timestamp?: string } = { details: "" };
+
+    // Keep trying to decode and parse until we can't anymore
+    while (true) {
+      const decoded = tryDecodeAbiString(current);
+      if (!decoded) break;
+
+      const parsed = tryParseJson(decoded);
+      if (!parsed) {
+        result.details = decoded;
+        break;
+      }
+
+      if (parsed.details) {
+        if (
+          typeof parsed.details === "string" &&
+          parsed.details.startsWith("0x")
+        ) {
+          current = parsed.details;
+          if (parsed.timestamp) {
+            result.timestamp = new Date(parsed.timestamp).toLocaleString();
+          }
+          continue;
+        }
+        result.details = parsed.details;
+      }
+      if (parsed.timestamp && !result.timestamp) {
+        result.timestamp = new Date(parsed.timestamp).toLocaleString();
+      }
+      break;
+    }
+
+    return result;
+  };
+
   return (
     <div className="space-y-6">
       <div className="bg-white p-4 rounded-lg shadow-md border border-gray-200">
@@ -157,12 +213,26 @@ export function DIDViewer({ did, verifications }: DIDViewerProps) {
                     </span>
                   </div>
 
-                  {parsedMetadata.details && (
+                  {verification.metadata && (
                     <div className="mt-2 text-sm text-gray-700">
                       <p className="font-medium mb-1">Verification Notes:</p>
-                      <p className="bg-white p-2 rounded whitespace-pre-wrap break-words">
-                        {parsedMetadata.details}
-                      </p>
+                      {(() => {
+                        const { details, timestamp } = decodeMetadata(
+                          verification.metadata
+                        );
+                        return (
+                          <div className="bg-white p-2 rounded">
+                            <p className="whitespace-pre-wrap break-words">
+                              {details}
+                            </p>
+                            {timestamp && (
+                              <p className="text-xs text-gray-500 mt-1">
+                                Note added: {timestamp}
+                              </p>
+                            )}
+                          </div>
+                        );
+                      })()}
                     </div>
                   )}
 
