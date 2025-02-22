@@ -1,9 +1,7 @@
 import React from "react";
 import { ethers, BigNumber } from "ethers";
 import { DIDForm } from "./DIDForm";
-import { VerificationPanel } from "./VerificationPanel";
 import { DIDDocument, Verification } from "../types/DIDRegistry";
-import { useDID } from "../contexts/DIDContext";
 
 interface DIDViewerProps {
   did: DIDDocument;
@@ -11,8 +9,6 @@ interface DIDViewerProps {
 }
 
 export function DIDViewer({ did, verifications }: DIDViewerProps) {
-  const { verifierState } = useDID();
-
   // Format timestamps to human-readable dates
   const formatDate = (timestamp: BigNumber | number) => {
     if (BigNumber.isBigNumber(timestamp)) {
@@ -236,7 +232,7 @@ export function DIDViewer({ did, verifications }: DIDViewerProps) {
                     </span>
                   </div>
 
-                  {verifierState.isVerifier && verification.metadata && (
+                  {verification.metadata && (
                     <div className="mt-4 bg-white rounded-md border border-gray-100 p-3">
                       <h5 className="text-sm font-semibold text-gray-900 mb-2">
                         Verification Details
@@ -281,8 +277,6 @@ export function DIDViewer({ did, verifications }: DIDViewerProps) {
           </div>
         </div>
       )}
-
-      {verifierState.isVerifier && <VerificationPanel didId={did.id} />}
     </div>
   );
 }

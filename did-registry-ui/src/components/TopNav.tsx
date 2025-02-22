@@ -1,8 +1,10 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useDID } from "../contexts/DIDContext";
 
 export function TopNav() {
   const pathname = usePathname();
+  const { verifierState } = useDID();
 
   const isActive = (path: string) => {
     return pathname === path;
@@ -33,13 +35,23 @@ export function TopNav() {
               <Link
                 href="/"
                 className={`text-white hover:text-blue-100 transition-colors py-5 ${
-                  isActive("/") && !isActive("/dids")
+                  isActive("/") && !isActive("/dids") && !isActive("/admin")
                     ? "border-b-2 border-white"
                     : ""
                 }`}
               >
                 Create New DID
               </Link>
+              {verifierState.isVerifier && (
+                <Link
+                  href="/admin"
+                  className={`text-white hover:text-blue-100 transition-colors py-5 ${
+                    isActive("/admin") ? "border-b-2 border-white" : ""
+                  }`}
+                >
+                  Admin
+                </Link>
+              )}
             </div>
           </div>
           <div className="flex items-center">
