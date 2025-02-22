@@ -228,7 +228,7 @@ export default function DIDDetailsPage() {
       {/* Identity Verifications Section */}
       <div className="bg-white shadow-md rounded-lg overflow-hidden">
         <div className="p-6">
-          <h3 className="text-lg font-medium text-gray-900 mb-4">
+          <h3 className="text-lg font-medium text-gray-900 mb-2">
             Identity Verifications
           </h3>
           <p className="text-gray-500 mb-6">
@@ -239,12 +239,23 @@ export default function DIDDetailsPage() {
             <div className="bg-green-50 border border-green-100 rounded-lg p-6">
               <div className="flex justify-between items-start mb-6">
                 <div>
-                  <h4 className="text-base font-medium text-gray-900">
+                  <h4 className="text-lg font-medium text-gray-900">
                     {getVerificationLevelText(verificationDetails.level)}{" "}
                     Verification
                   </h4>
                   <p className="text-gray-600 mt-1">
-                    {verificationDetails.metadata}
+                    {(() => {
+                      switch (verificationDetails.level) {
+                        case 1:
+                          return "Account ownership verification";
+                        case 2:
+                          return "Government ID verification";
+                        case 3:
+                          return "Full KYC with biometric verification";
+                        default:
+                          return "Custom verification level";
+                      }
+                    })()}
                   </p>
                 </div>
                 <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
@@ -252,19 +263,30 @@ export default function DIDDetailsPage() {
                 </span>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {verificationDetails.metadata && (
+                <div className="mb-6">
+                  <h5 className="text-sm font-medium text-gray-700 mb-2">
+                    Verification Details
+                  </h5>
+                  <p className="text-gray-600">
+                    {verificationDetails.metadata}
+                  </p>
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-sm font-medium text-gray-500">
+                  <p className="text-sm font-medium text-gray-500">
                     Verified On
-                  </label>
+                  </p>
                   <p className="mt-1 text-gray-900">
                     {verificationDetails.verifiedOn}
                   </p>
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-gray-500">
+                  <p className="text-sm font-medium text-gray-500">
                     Valid Until
-                  </label>
+                  </p>
                   <p className="mt-1 text-gray-900">
                     {verificationDetails.validUntil}
                   </p>
