@@ -5,6 +5,10 @@
   "main": "index.js",
   "scripts": {
     "test": "hardhat test",
+    "build": "hardhat compile && hardhat typechain && pnpm copy-contracts",
+    "copy-contracts": "pnpm copy-contracts:did-registry-ui && pnpm copy-contracts:document-registry-ui",
+    "copy-contracts:did-registry-ui": "cp -r artifacts/contracts/core/* did-registry-ui/src/contracts/",
+    "copy-contracts:document-registry-ui": "cp -r artifacts/contracts/core/* document-registry-ui/src/contracts/",
     "compile": "hardhat compile",
     "deploy": "hardhat run scripts/deploy.js",
     "lint": "solhint 'contracts/**/*.sol'",
