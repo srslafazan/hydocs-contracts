@@ -297,9 +297,11 @@ describe("DocumentRegistry", function () {
           "{}",
           []
         );
-      documentId = (await tx.wait()).events.find(
-        (e) => e.event === "DocumentRegistered"
-      ).args.documentId;
+      const receipt = await tx.wait();
+      const event = receipt.logs.find(
+        (log) => log.fragment && log.fragment.name === "DocumentRegistered"
+      );
+      documentId = event.args.documentId;
     });
 
     it("Should allow owner to update metadata", async function () {
@@ -318,8 +320,8 @@ describe("DocumentRegistry", function () {
         .connect(user1)
         .revokeDocument(documentId);
       const receipt = await tx.wait();
-      const event = receipt.events.find(
-        (e) => e.event === "DocumentStatusChanged"
+      const event = receipt.logs.find(
+        (log) => log.fragment && log.fragment.name === "DocumentStatusChanged"
       );
 
       expect(event.args.oldStatus).to.equal(ACTIVE);
@@ -334,8 +336,8 @@ describe("DocumentRegistry", function () {
         .connect(owner)
         .revokeDocument(documentId);
       const receipt = await tx.wait();
-      const event = receipt.events.find(
-        (e) => e.event === "DocumentStatusChanged"
+      const event = receipt.logs.find(
+        (log) => log.fragment && log.fragment.name === "DocumentStatusChanged"
       );
 
       expect(event.args.oldStatus).to.equal(ACTIVE);
