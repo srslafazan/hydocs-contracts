@@ -255,7 +255,7 @@ abstract contract DIDRegistry is IDID, AccessControl, Pausable, ReentrancyGuard 
     }
 
     function _hasValidVerification(bytes32 didId) internal view returns (bool) {
-        address[] memory verifiers = getRoleMemberArray(VERIFIER_ROLE);
+        address[] memory verifiers = _getVerifierRoleMembers();
         
         for (uint i = 0; i < verifiers.length; i++) {
             Verification storage verification = _verifications[didId][verifiers[i]];
@@ -268,10 +268,8 @@ abstract contract DIDRegistry is IDID, AccessControl, Pausable, ReentrancyGuard 
         return false;
     }
 
-    // Helper function to get role members array
-    function getRoleMemberArray(bytes32 role) internal view returns (address[] memory) {
-        require(role == VERIFIER_ROLE, "DIDRegistry: Only verifier role supported");
-        
+    // Internal helper function to get verifier role members
+    function _getVerifierRoleMembers() internal view returns (address[] memory) {
         uint256 length = _verifierSet.length();
         address[] memory members = new address[](length);
         
@@ -280,6 +278,12 @@ abstract contract DIDRegistry is IDID, AccessControl, Pausable, ReentrancyGuard 
         }
         
         return members;
+    }
+
+    // External helper function to get role members array
+    function getRoleMemberArray(bytes32 role) external view returns (address[] memory) {
+        require(role == VERIFIER_ROLE, "DIDRegistry: Only verifier role supported");
+        return _getVerifierRoleMembers();
     }
 
     // Override the grantRole function to maintain the verifier set
