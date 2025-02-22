@@ -427,35 +427,69 @@ export function DocumentRegistryProvider({
   const getDocumentsToSign = useCallback(
     async (address: string): Promise<Document[]> => {
       const contract = await getDocumentRegistryContract();
-      if (!contract || !provider || !address) return [];
+      if (!contract || !provider || !address) {
+        console.log("Missing dependencies:", {
+          contract: !!contract,
+          provider: !!provider,
+          address,
+        });
+        return [];
+      }
 
       try {
+        console.log("Fetching documents to sign for address:", address);
         const allDocs = await getAllDocuments();
+        console.log("Total documents found:", allDocs.length);
+
         const docsToSign = await Promise.all(
           allDocs.map(async (doc) => {
+            console.log("\nChecking document:", {
+              id: doc.id,
+              type: doc.documentType,
+              status: doc.status,
+            });
+
             const requiredSigners = await getRequiredSigners(doc.id);
+            console.log("Required signers:", requiredSigners);
+
             const signatures = await getSignatures(doc.id);
+            console.log("Existing signatures:", signatures);
 
             // Check if the address is a required signer and hasn't signed yet
             const isRequiredSigner = requiredSigners.some(
               (signer) => signer.toLowerCase() === address.toLowerCase()
             );
+            console.log("Is required signer:", isRequiredSigner);
+
             const hasSigned = signatures.some(
               (sig) => sig.signerDid.toLowerCase() === address.toLowerCase()
             );
+            console.log("Has already signed:", hasSigned);
+            console.log("Document status:", doc.status);
 
             if (
               isRequiredSigner &&
               !hasSigned &&
               doc.status !== DocumentStatus.REVOKED
             ) {
+              console.log("Document requires signature from current user");
               return doc;
             }
+            console.log(
+              "Document does not require signature from current user"
+            );
             return null;
           })
         );
 
-        return docsToSign.filter((doc): doc is Document => doc !== null);
+        const filteredDocs = docsToSign.filter(
+          (doc): doc is Document => doc !== null
+        );
+        console.log(
+          "Final documents requiring signature:",
+          filteredDocs.length
+        );
+        return filteredDocs;
       } catch (error) {
         console.error("Error getting documents to sign:", error);
         return [];
