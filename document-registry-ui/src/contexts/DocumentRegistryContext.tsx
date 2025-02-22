@@ -65,6 +65,7 @@ interface DocumentRegistryContextType {
     { document: Document; signatures: DocumentSignature[] }[]
   >;
   getDocumentsToSign: (address: string) => Promise<Document[]>;
+  getDIDRegistryContract: () => Contract;
 }
 
 const DocumentRegistryContext = createContext<
@@ -96,7 +97,7 @@ export function DocumentRegistryProvider({
       );
     }
 
-    console.log("Using signer for contract operations");
+    // console.log("Using signer for contract operations");
     return new Contract(
       DOCUMENT_CONTRACT_ADDRESS,
       DocumentRegistryABI.abi,
@@ -432,14 +433,14 @@ export function DocumentRegistryProvider({
         toBlock: "latest",
       };
 
-      console.log(
-        "Getting all documents from contract:",
-        await contract.getAddress()
-      );
+      // console.log(
+      //   "Getting all documents from contract:",
+      //   await contract.getAddress()
+      // );
 
       try {
         const logs = await provider.getLogs(filter);
-        console.log("Found", logs.length, "document registration events");
+        // console.log("Found", logs.length, "document registration events");
 
         const documentPromises = logs.map(async (log) => {
           const documentId = log.topics[1];
@@ -488,12 +489,12 @@ export function DocumentRegistryProvider({
       try {
         // Get the user's DID if they have one
         const userDid = await didContract.getDIDByAddress(address);
-        console.log("User DID:", userDid);
-        console.log("User address:", address);
+        // console.log("User DID:", userDid);
+        // console.log("User address:", address);
 
-        console.log("Fetching documents to sign for address:", address);
+        // console.log("Fetching documents to sign for address:", address);
         const allDocs = await getAllDocuments();
-        console.log("Total documents found:", allDocs.length);
+        // console.log("Total documents found:", allDocs.length);
 
         const docsToSign = await Promise.all(
           allDocs.map(async (result) => {
@@ -506,10 +507,10 @@ export function DocumentRegistryProvider({
             const requiredSigners = await getRequiredSigners(
               result.document.id
             );
-            console.log("Required signers:", requiredSigners);
+            // console.log("Required signers:", requiredSigners);
 
             const signatures = result.signatures;
-            console.log("Existing signatures:", signatures);
+            // console.log("Existing signatures:", signatures);
 
             // Helper function to check if a value is an Ethereum address
             const isAddress = (value: string): boolean => {
@@ -537,7 +538,7 @@ export function DocumentRegistryProvider({
                 return userDid && signer === userDid;
               }
             });
-            console.log("Is required signer:", isRequiredSigner);
+            // console.log("Is required signer:", isRequiredSigner);
 
             // Check if either the address or DID has already signed
             const hasSigned = signatures.some((sig) => {
@@ -556,8 +557,8 @@ export function DocumentRegistryProvider({
                 return userDid && sig.signerDid === userDid;
               }
             });
-            console.log("Has already signed:", hasSigned);
-            console.log("Document status:", result.document.status);
+            // console.log("Has already signed:", hasSigned);
+            // console.log("Document status:", result.document.status);
 
             if (
               isRequiredSigner &&
@@ -568,9 +569,9 @@ export function DocumentRegistryProvider({
               console.log("Document requires signature from current user");
               return result.document;
             }
-            console.log(
-              "Document does not require signature from current user"
-            );
+            // console.log(
+            //   "Document does not require signature from current user"
+            // );
             return null;
           })
         );
@@ -615,6 +616,7 @@ export function DocumentRegistryProvider({
         error,
         getAllDocuments,
         getDocumentsToSign,
+        getDIDRegistryContract,
       }}
     >
       {children}

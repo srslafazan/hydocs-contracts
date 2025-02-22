@@ -58,6 +58,7 @@ export default function DocumentList({
     getDocumentsByOwner,
     getAllDocuments,
     getDocumentsToSign,
+    getDIDRegistryContract,
   } = useDocumentRegistry();
 
   const refreshDocuments = useCallback(async () => {
@@ -91,26 +92,63 @@ export default function DocumentList({
         if (showSignerInbox) {
           docs = await getDocumentsToSign(account!);
         } else {
+          // Get user's DID if they have one
+          const didContract = await getDIDRegistryContract();
+          const userDid = await didContract.getDIDByAddress(account!);
+          console.log("User DID:", userDid);
+          console.log("User address:", account);
+          console.log("Total documents to check:", results.length);
+
           docs = results
             .filter((r) => {
-              return r.signatures.some((sig) => {
+              console.log("\nChecking document:", r.document.id);
+              console.log("Document signatures:", r.signatures);
+
+              const hasSignedDocument = r.signatures.some((sig) => {
                 try {
-                  if (sig.signerDid.startsWith("0x")) {
-                    return (
-                      ethers.getAddress(sig.signerDid) ===
-                      ethers.getAddress(account!)
+                  // Check if the signature is an Ethereum address
+                  const isEthereumAddress =
+                    sig.signerDid.length === 42 &&
+                    sig.signerDid.startsWith("0x");
+
+                  if (isEthereumAddress) {
+                    const normalizedSignerAddress = ethers.getAddress(
+                      sig.signerDid
                     );
+                    const normalizedUserAddress = ethers.getAddress(account!);
+                    const matches =
+                      normalizedSignerAddress === normalizedUserAddress;
+                    console.log("Comparing addresses:", {
+                      signerDid: normalizedSignerAddress,
+                      account: normalizedUserAddress,
+                      matches,
+                    });
+                    return matches;
+                  } else {
+                    // Handle DID comparison
+                    const matches = userDid && sig.signerDid === userDid;
+                    console.log("Comparing DIDs:", {
+                      signerDid: sig.signerDid,
+                      userDid: userDid,
+                      matches,
+                    });
+                    return matches;
                   }
-                  return false;
-                } catch {
+                } catch (err) {
+                  console.error("Error comparing signer:", err);
                   return false;
                 }
               });
+
+              console.log("Has signed document:", hasSignedDocument);
+              return hasSignedDocument;
             })
             .map((r) => r.document);
+
+          console.log("Found signed documents:", docs.length);
         }
 
-        // Get signatures and required signers for filtered documents
+        // Get signatures for filtered documents
         sigs = results.reduce((acc, r) => {
           if (docs.some((d) => d.id === r.document.id)) {
             acc[r.document.id] = r.signatures;
@@ -146,6 +184,7 @@ export default function DocumentList({
     getDocumentsByOwner,
     getDocumentsToSign,
     getRequiredSigners,
+    getDIDRegistryContract,
   ]);
 
   useEffect(() => {
@@ -185,8 +224,6 @@ export default function DocumentList({
       </div>
     );
   }
-
-  console.log("selectedDocument", selectedDocument);
 
   return (
     <div className="container mx-auto px-4 py-8">
