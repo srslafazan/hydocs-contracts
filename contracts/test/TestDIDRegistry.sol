@@ -16,6 +16,7 @@ contract TestDIDRegistry is DIDRegistry {
         __ReentrancyGuard_init();
 
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
+        _grantRole(ADMIN_ROLE, msg.sender);
         _grantRole(VERIFIER_ROLE, msg.sender);
     }
 

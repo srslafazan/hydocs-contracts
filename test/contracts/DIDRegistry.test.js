@@ -27,7 +27,8 @@ describe("DIDRegistry", function () {
     await didRegistry.waitForDeployment();
     await didRegistry.initialize();
 
-    // Grant verifier role
+    // Grant roles
+    await didRegistry.grantRole(ADMIN_ROLE, owner.address);
     await didRegistry.grantRole(VERIFIER_ROLE, verifier.address);
   });
 
@@ -46,6 +47,7 @@ describe("DIDRegistry", function () {
     it("Should set up roles correctly on deployment", async function () {
       expect(await didRegistry.hasRole(DEFAULT_ADMIN_ROLE, owner.address)).to.be
         .true;
+      expect(await didRegistry.hasRole(ADMIN_ROLE, owner.address)).to.be.true;
       expect(await didRegistry.hasRole(VERIFIER_ROLE, verifier.address)).to.be
         .true;
     });
@@ -149,10 +151,7 @@ describe("DIDRegistry", function () {
 
     it("Should add verification by authorized verifier", async function () {
       const oneYearFromNow = (await time.latest()) + 365 * 24 * 60 * 60;
-      const metadata = ethers.defaultAbiCoder.encode(
-        ["string"],
-        ["Verified via KYC"]
-      );
+      const metadata = ethers.toUtf8Bytes("Verified via KYC");
 
       await expect(
         didRegistry.connect(verifier).addVerification(
@@ -384,10 +383,7 @@ describe("DIDRegistry", function () {
     });
 
     it("Should store and retrieve verification metadata", async function () {
-      const metadata = ethers.defaultAbiCoder.encode(
-        ["string", "uint256", "bool"],
-        ["KYC Verified", 12345, true]
-      );
+      const metadata = ethers.toUtf8Bytes("KYC Verified");
 
       await didRegistry
         .connect(verifier)
@@ -396,15 +392,18 @@ describe("DIDRegistry", function () {
         didId,
         verifier.address
       );
-      expect(verification.metadata).to.equal(metadata);
+      expect(ethers.toUtf8String(verification.metadata)).to.equal(
+        "KYC Verified"
+      );
     });
   });
 
   describe("System State Management", function () {
     it("Should handle paused state correctly", async function () {
-      const identifiers = [ethers.id("test@email.com")];
+      await didRegistry.connect(owner).pause();
+      expect(await didRegistry.paused()).to.be.true;
 
-      await didRegistry.pause();
+      const identifiers = [ethers.id("test@email.com")];
       await expect(
         didRegistry.connect(user1).createDID(identifiers)
       ).to.be.revertedWith("Pausable: paused");
@@ -413,14 +412,14 @@ describe("DIDRegistry", function () {
         didRegistry
           .connect(verifier)
           .addVerification(
-            ethers.constants.HashZero,
+            ethers.ZeroHash,
             1,
             (await time.latest()) + 3600,
             "0x"
           )
       ).to.be.revertedWith("Pausable: paused");
 
-      await didRegistry.unpause();
+      await didRegistry.connect(owner).unpause();
       await expect(didRegistry.connect(user1).createDID(identifiers)).to.emit(
         didRegistry,
         "DIDCreated"
