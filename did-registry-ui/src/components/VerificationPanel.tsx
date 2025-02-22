@@ -14,9 +14,7 @@ export function VerificationPanel({ didId }: VerificationPanelProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [currentVerification, setCurrentVerification] = useState<any>(null);
-  const [level, setLevel] = useState<VerificationLevel>(
-    VerificationLevel.BASIC
-  );
+  const [level, setLevel] = useState<VerificationLevel>(VerificationLevel.NONE);
   const [metadata, setMetadata] = useState("");
   const [addressToVerify, setAddressToVerify] = useState("");
   const [targetDidId, setTargetDidId] = useState<string | null>(didId || null);
