@@ -1,61 +1,112 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.9;
 
+/**
+ * @title IDocument
+ * @dev Interface for the Document Registry contract
+ */
 interface IDocument {
-    // Structs
     struct Document {
-        bytes32 id;              // Document identifier
-        bytes32 contentHash;     // Hash of document content
-        bytes32 didId;          // Owner's DID
-        uint256 created;         // Creation timestamp
-        uint256 expiration;      // Expiration timestamp
-        bytes32 docType;         // Document type
-        bytes metadata;          // Additional metadata
-        bool active;             // Active status
+        bytes32 contentHash;      // SHA-256 hash of document content
+        bytes32 documentType;     // Type of document
+        address owner;            // Document owner's address
+        string did;              // Document owner's DID
+        uint256 createdAt;       // Creation timestamp
+        uint256 expiresAt;       // Expiration timestamp (0 for no expiration)
+        bytes32 status;          // Document status
+        string metadata;         // Additional metadata (JSON string)
+        uint256 version;         // Document version
     }
 
-    struct SignatureRequest {
-        bytes32 documentId;      // Document to sign
-        bytes32 signerDid;      // Required signer's DID
-        uint256 deadline;        // Signing deadline
-        bytes32 role;           // Signer's role
-        bool required;          // Is signature required
+    struct Signature {
+        string signerDid;        // Signer's DID
+        uint256 timestamp;       // Signature timestamp
+        bytes32 signatureType;   // Type of signature (approve, reject, acknowledge)
+        string metadata;         // Additional metadata (comments, notes)
     }
 
-    // Events
-    event DocumentCreated(bytes32 indexed documentId, bytes32 indexed didId);
-    event DocumentSigned(bytes32 indexed documentId, bytes32 indexed signerDid);
-    event DocumentRevoked(bytes32 indexed documentId);
-    event DocumentTransferred(
-        bytes32 indexed documentId, 
-        bytes32 indexed fromDid, 
-        bytes32 indexed toDid
+    event DocumentRegistered(
+        bytes32 indexed documentId,
+        bytes32 contentHash,
+        bytes32 documentType,
+        address indexed owner,
+        string did,
+        uint256 expiresAt
     );
 
-    // Core document functions
-    function createDocument(
+    event DocumentSigned(
+        bytes32 indexed documentId,
+        string signerDid,
+        bytes32 signatureType,
+        uint256 timestamp
+    );
+
+    event DocumentStatusChanged(
+        bytes32 indexed documentId,
+        bytes32 oldStatus,
+        bytes32 newStatus
+    );
+
+    /**
+     * @dev Registers a new document in the registry
+     * @param contentHash SHA-256 hash of document content
+     * @param documentType Type of document
+     * @param expiresAt Expiration timestamp (0 for no expiration)
+     * @param metadata Additional metadata (JSON string)
+     * @param requiredSignerDids Array of DIDs required to sign the document
+     * @return documentId Unique identifier for the document
+     */
+    function registerDocument(
         bytes32 contentHash,
-        bytes32 docType,
-        uint256 expiration,
-        bytes calldata metadata
+        bytes32 documentType,
+        uint256 expiresAt,
+        string calldata metadata,
+        string[] calldata requiredSignerDids
     ) external returns (bytes32);
 
-    function revokeDocument(bytes32 documentId) external;
-    function transferDocument(bytes32 documentId, bytes32 toDid) external;
-    function getDocument(bytes32 documentId) 
-        external view returns (Document memory);
-
-    // Signature functions
-    function requestSignature(
-        bytes32 documentId,
-        bytes32 signerDid,
-        uint256 deadline,
-        bytes32 role
-    ) external;
-
+    /**
+     * @dev Signs a document
+     * @param documentId ID of the document to sign
+     * @param signatureType Type of signature
+     * @param metadata Additional metadata (comments, notes)
+     */
     function signDocument(
         bytes32 documentId,
-        bytes calldata signature,
-        bytes calldata metadata
+        bytes32 signatureType,
+        string calldata metadata
     ) external;
+
+    /**
+     * @dev Revokes a document
+     * @param documentId ID of the document to revoke
+     */
+    function revokeDocument(bytes32 documentId) external;
+
+    /**
+     * @dev Updates document metadata
+     * @param documentId ID of the document to update
+     * @param metadata New metadata
+     */
+    function updateMetadata(bytes32 documentId, string calldata metadata) external;
+
+    /**
+     * @dev Checks if a document has all required signatures
+     * @param documentId ID of the document to check
+     * @return boolean indicating if all required signatures are present
+     */
+    function hasAllRequiredSignatures(bytes32 documentId) external view returns (bool);
+
+    /**
+     * @dev Gets all signatures for a document
+     * @param documentId ID of the document
+     * @return Array of signatures
+     */
+    function getSignatures(bytes32 documentId) external view returns (Signature[] memory);
+
+    /**
+     * @dev Gets all required signers for a document
+     * @param documentId ID of the document
+     * @return Array of required signer DIDs
+     */
+    function getRequiredSigners(bytes32 documentId) external view returns (string[] memory);
 } 

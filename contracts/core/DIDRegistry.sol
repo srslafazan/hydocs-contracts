@@ -1,18 +1,20 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.28;
+pragma solidity ^0.8.9;
 
-import {IDID} from "../interfaces/IDID.sol";
-import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
-import {Pausable} from "@openzeppelin/contracts/security/Pausable.sol";
-import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
+import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/structs/EnumerableSetUpgradeable.sol";
+import "../interfaces/IDID.sol";
 
 /**
  * @title DIDRegistry
  * @dev Implementation of the DID (Decentralized Identity) registry
  */
-abstract contract DIDRegistry is IDID, AccessControl, Pausable, ReentrancyGuard {
-    using EnumerableSet for EnumerableSet.AddressSet;
+contract DIDRegistry is Initializable, AccessControlUpgradeable, PausableUpgradeable, UUPSUpgradeable, ReentrancyGuardUpgradeable, IDID {
+    using EnumerableSetUpgradeable for EnumerableSetUpgradeable.AddressSet;
     
     bytes32 public constant VERIFIER_ROLE = keccak256("VERIFIER_ROLE");
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
@@ -29,12 +31,24 @@ abstract contract DIDRegistry is IDID, AccessControl, Pausable, ReentrancyGuard 
     uint256 public constant KYC_VERIFICATION = 3;
 
     // Keep track of verifiers in a set
-    EnumerableSet.AddressSet private _verifierSet;
+    EnumerableSetUpgradeable.AddressSet private _verifierSet;
 
+    /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
-        _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
-        _setupRole(ADMIN_ROLE, msg.sender);
+        // Empty constructor
     }
+
+    function initialize() initializer public virtual {
+        __AccessControl_init();
+        __Pausable_init();
+        __UUPSUpgradeable_init();
+        __ReentrancyGuard_init();
+
+        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
+        _grantRole(VERIFIER_ROLE, msg.sender);
+    }
+
+    function _authorizeUpgrade(address newImplementation) internal override onlyRole(DEFAULT_ADMIN_ROLE) {}
 
     /**
      * @dev Creates a new DID with the given identifiers

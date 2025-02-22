@@ -11,18 +11,11 @@ describe("DIDRegistry", function () {
   let user2;
 
   // Constants
-  const VERIFIER_ROLE = ethers.utils.keccak256(
-    ethers.utils.toUtf8Bytes("VERIFIER_ROLE")
-  );
-  const ADMIN_ROLE = ethers.utils.keccak256(
-    ethers.utils.toUtf8Bytes("ADMIN_ROLE")
-  );
-  const ACTIVE_STATUS = ethers.utils.keccak256(
-    ethers.utils.toUtf8Bytes("ACTIVE")
-  );
-  const REVOKED_STATUS = ethers.utils.keccak256(
-    ethers.utils.toUtf8Bytes("REVOKED")
-  );
+  const VERIFIER_ROLE = ethers.id("VERIFIER_ROLE");
+  const ADMIN_ROLE = ethers.id("ADMIN_ROLE");
+  const ACTIVE_STATUS = ethers.id("ACTIVE");
+  const REVOKED_STATUS = ethers.id("REVOKED");
+  const DEFAULT_ADMIN_ROLE = ethers.id("DEFAULT_ADMIN_ROLE");
 
   beforeEach(async function () {
     // Get signers
@@ -31,7 +24,8 @@ describe("DIDRegistry", function () {
     // Deploy contract
     TestDIDRegistry = await ethers.getContractFactory("TestDIDRegistry");
     didRegistry = await TestDIDRegistry.deploy();
-    await didRegistry.deployed();
+    await didRegistry.waitForDeployment();
+    await didRegistry.initialize();
 
     // Grant verifier role
     await didRegistry.grantRole(VERIFIER_ROLE, verifier.address);
@@ -39,18 +33,19 @@ describe("DIDRegistry", function () {
 
   // Helper function to create a DID and return its ID
   async function createDID(signer, email = "test@email.com") {
-    const identifiers = [
-      ethers.utils.keccak256(ethers.utils.toUtf8Bytes(email)),
-    ];
+    const identifiers = [ethers.id(email)];
     const tx = await didRegistry.connect(signer).createDID(identifiers);
     const receipt = await tx.wait();
-    const event = receipt.events.find((e) => e.event === "DIDCreated");
+    const event = await receipt.logs.find(
+      (log) => log.fragment && log.fragment.name === "DIDCreated"
+    );
     return event.args.didId;
   }
 
   describe("Role Management", function () {
     it("Should set up roles correctly on deployment", async function () {
-      expect(await didRegistry.hasRole(ADMIN_ROLE, owner.address)).to.be.true;
+      expect(await didRegistry.hasRole(DEFAULT_ADMIN_ROLE, owner.address)).to.be
+        .true;
       expect(await didRegistry.hasRole(VERIFIER_ROLE, verifier.address)).to.be
         .true;
     });
@@ -77,15 +72,17 @@ describe("DIDRegistry", function () {
   describe("DID Creation", function () {
     it("Should create a DID with valid identifiers", async function () {
       const identifiers = [
-        ethers.utils.keccak256(ethers.utils.toUtf8Bytes("test@email.com")),
-        ethers.utils.keccak256(ethers.utils.toUtf8Bytes("+1234567890")),
+        ethers.id("test@email.com"),
+        ethers.id("+1234567890"),
       ];
 
       const tx = await didRegistry.connect(user1).createDID(identifiers);
       await expect(tx).to.emit(didRegistry, "DIDCreated");
 
       const receipt = await tx.wait();
-      const event = receipt.events.find((e) => e.event === "DIDCreated");
+      const event = await receipt.logs.find(
+        (log) => log.fragment && log.fragment.name === "DIDCreated"
+      );
       const didId = event.args.didId;
 
       const metadata = await didRegistry.getDIDMetadata(didId);
@@ -100,9 +97,7 @@ describe("DIDRegistry", function () {
     });
 
     it("Should not allow creating multiple DIDs for same address", async function () {
-      const identifiers = [
-        ethers.utils.keccak256(ethers.utils.toUtf8Bytes("test@email.com")),
-      ];
+      const identifiers = [ethers.id("test@email.com")];
 
       await didRegistry.connect(user1).createDID(identifiers);
 
@@ -126,9 +121,7 @@ describe("DIDRegistry", function () {
     });
 
     it("Should update DID identifiers", async function () {
-      const newIdentifiers = [
-        ethers.utils.keccak256(ethers.utils.toUtf8Bytes("new@email.com")),
-      ];
+      const newIdentifiers = [ethers.id("new@email.com")];
 
       await expect(
         didRegistry.connect(user1).updateDID(didId, newIdentifiers)
@@ -139,9 +132,7 @@ describe("DIDRegistry", function () {
     });
 
     it("Should not allow non-owner to update DID", async function () {
-      const newIdentifiers = [
-        ethers.utils.keccak256(ethers.utils.toUtf8Bytes("new@email.com")),
-      ];
+      const newIdentifiers = [ethers.id("new@email.com")];
 
       await expect(
         didRegistry.connect(user2).updateDID(didId, newIdentifiers)
@@ -158,7 +149,7 @@ describe("DIDRegistry", function () {
 
     it("Should add verification by authorized verifier", async function () {
       const oneYearFromNow = (await time.latest()) + 365 * 24 * 60 * 60;
-      const metadata = ethers.utils.defaultAbiCoder.encode(
+      const metadata = ethers.defaultAbiCoder.encode(
         ["string"],
         ["Verified via KYC"]
       );
@@ -231,9 +222,7 @@ describe("DIDRegistry", function () {
     it("Should allow admin to pause and unpause", async function () {
       await expect(didRegistry.pause()).to.emit(didRegistry, "Paused");
 
-      const identifiers = [
-        ethers.utils.keccak256(ethers.utils.toUtf8Bytes("test@email.com")),
-      ];
+      const identifiers = [ethers.id("test@email.com")];
       await expect(
         didRegistry.connect(user1).createDID(identifiers)
       ).to.be.revertedWith("Pausable: paused");
@@ -257,16 +246,15 @@ describe("DIDRegistry", function () {
     let identifiers;
 
     beforeEach(async function () {
-      identifiers = [
-        ethers.utils.keccak256(ethers.utils.toUtf8Bytes("test@email.com")),
-        ethers.utils.keccak256(ethers.utils.toUtf8Bytes("+1234567890")),
-      ];
+      identifiers = [ethers.id("test@email.com"), ethers.id("+1234567890")];
     });
 
     it("Should create DID with correct metadata", async function () {
       const tx = await didRegistry.connect(user1).createDID(identifiers);
       const receipt = await tx.wait();
-      const event = receipt.events.find((e) => e.event === "DIDCreated");
+      const event = await receipt.logs.find(
+        (log) => log.fragment && log.fragment.name === "DIDCreated"
+      );
       const didId = event.args.didId;
 
       const metadata = await didRegistry.getDIDMetadata(didId);
@@ -278,7 +266,9 @@ describe("DIDRegistry", function () {
     it("Should return correct DID owner", async function () {
       const tx = await didRegistry.connect(user1).createDID(identifiers);
       const receipt = await tx.wait();
-      const event = receipt.events.find((e) => e.event === "DIDCreated");
+      const event = await receipt.logs.find(
+        (log) => log.fragment && log.fragment.name === "DIDCreated"
+      );
       const didId = event.args.didId;
 
       expect(await didRegistry.getDIDOwner(didId)).to.equal(user1.address);
@@ -287,7 +277,9 @@ describe("DIDRegistry", function () {
     it("Should return correct DID identifiers", async function () {
       const tx = await didRegistry.connect(user1).createDID(identifiers);
       const receipt = await tx.wait();
-      const event = receipt.events.find((e) => e.event === "DIDCreated");
+      const event = await receipt.logs.find(
+        (log) => log.fragment && log.fragment.name === "DIDCreated"
+      );
       const didId = event.args.didId;
 
       const storedIdentifiers = await didRegistry.getDIDIdentifiers(didId);
@@ -297,7 +289,9 @@ describe("DIDRegistry", function () {
     it("Should deactivate DID correctly", async function () {
       const tx = await didRegistry.connect(user1).createDID(identifiers);
       const receipt = await tx.wait();
-      const event = receipt.events.find((e) => e.event === "DIDCreated");
+      const event = await receipt.logs.find(
+        (log) => log.fragment && log.fragment.name === "DIDCreated"
+      );
       const didId = event.args.didId;
 
       await didRegistry.connect(user1).deactivateDID(didId);
@@ -308,7 +302,9 @@ describe("DIDRegistry", function () {
     it("Should not allow deactivating already inactive DID", async function () {
       const tx = await didRegistry.connect(user1).createDID(identifiers);
       const receipt = await tx.wait();
-      const event = receipt.events.find((e) => e.event === "DIDCreated");
+      const event = await receipt.logs.find(
+        (log) => log.fragment && log.fragment.name === "DIDCreated"
+      );
       const didId = event.args.didId;
 
       await didRegistry.connect(user1).deactivateDID(didId);
@@ -323,12 +319,12 @@ describe("DIDRegistry", function () {
     let oneYearFromNow;
 
     beforeEach(async function () {
-      const identifiers = [
-        ethers.utils.keccak256(ethers.utils.toUtf8Bytes("test@email.com")),
-      ];
+      const identifiers = [ethers.id("test@email.com")];
       const tx = await didRegistry.connect(user1).createDID(identifiers);
       const receipt = await tx.wait();
-      const event = receipt.events.find((e) => e.event === "DIDCreated");
+      const event = await receipt.logs.find(
+        (log) => log.fragment && log.fragment.name === "DIDCreated"
+      );
       didId = event.args.didId;
       oneYearFromNow = (await time.latest()) + 365 * 24 * 60 * 60;
     });
@@ -388,7 +384,7 @@ describe("DIDRegistry", function () {
     });
 
     it("Should store and retrieve verification metadata", async function () {
-      const metadata = ethers.utils.defaultAbiCoder.encode(
+      const metadata = ethers.defaultAbiCoder.encode(
         ["string", "uint256", "bool"],
         ["KYC Verified", 12345, true]
       );
@@ -406,9 +402,7 @@ describe("DIDRegistry", function () {
 
   describe("System State Management", function () {
     it("Should handle paused state correctly", async function () {
-      const identifiers = [
-        ethers.utils.keccak256(ethers.utils.toUtf8Bytes("test@email.com")),
-      ];
+      const identifiers = [ethers.id("test@email.com")];
 
       await didRegistry.pause();
       await expect(

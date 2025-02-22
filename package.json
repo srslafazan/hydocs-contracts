@@ -11,14 +11,13 @@
     "format": "prettier --write .",
     "test:watch": "nodemon"
   },
-  "dependencies": {
-    "@openzeppelin/contracts": "^4.9.0"
-  },
   "devDependencies": {
+    "@nomicfoundation/hardhat-chai-matchers": "2.0.0",
     "@nomicfoundation/hardhat-network-helpers": "^1.0.0",
-    "@nomicfoundation/hardhat-toolbox": "^2.0.0",
+    "@nomicfoundation/hardhat-toolbox": "^4.0.0",
+    "@typechain/hardhat": "9.0.0",
     "chai": "^4.3.7",
-    "ethers": "^5.7.2",
+    "ethers": "^6.4.0",
     "hardhat": "^2.17.0",
     "nodemon": "^3.1.9",
     "prettier": "^2.8.8",
@@ -30,5 +29,9 @@
       "keccak",
       "secp256k1"
     ]
+  },
+  "dependencies": {
+    "@openzeppelin/contracts": "4.9.3",
+    "@openzeppelin/contracts-upgradeable": "4.9.3"
   }
 }
