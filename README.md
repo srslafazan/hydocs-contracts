@@ -66,13 +66,13 @@ Verify that the `.env.local` file was created in the `did-registry-ui` directory
 
 ```bash
 cat did-registry-ui/.env.local
-# Should show: NEXT_PUBLIC_CONTRACT_ADDRESS=0x...
+# Should show: NEXT_PUBLIC_DID_CONTRACT_ADDRESS=0x...
 ```
 
 If the file wasn't created or the address is missing, create it manually:
 
 ```bash
-echo "NEXT_PUBLIC_CONTRACT_ADDRESS=your_contract_address" > did-registry-ui/.env.local
+echo "NEXT_PUBLIC_DID_CONTRACT_ADDRESS=your_contract_address" > did-registry-ui/.env.local
 ```
 
 ### 4. Configure MetaMask

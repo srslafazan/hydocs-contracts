@@ -52,7 +52,7 @@ function DIDProviderWrapper({ children }: { children: React.ReactNode }) {
           throw new Error("Please install MetaMask to use this application");
         }
 
-        const contractAddress = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS;
+        const contractAddress = process.env.NEXT_PUBLIC_DID_CONTRACT_ADDRESS;
         if (!contractAddress) {
           throw new Error(
             "Contract address not found. Please make sure the contract is deployed and .env.local is set up correctly."
