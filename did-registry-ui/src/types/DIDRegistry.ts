@@ -25,9 +25,9 @@ export interface DIDMetadata {
 }
 
 export enum VerificationLevel {
-  BASIC = 1,
-  ENHANCED = 2,
-  PREMIUM = 3,
+  NONE = 1,
+  ID = 2,
+  KYC = 3,
 }
 
 export interface DIDRegistryInterface {

@@ -268,7 +268,7 @@ export function VerificationPanel({ didId }: VerificationPanelProps) {
                 <option value={1}>Basic - Email and phone verification</option>
                 <option value={2}>Enhanced - Government ID verification</option>
                 <option value={3}>
-                  Premium - Full KYC with biometric verification
+                  Complete (KYC) - Full KYC with biometric verification
                 </option>
               </select>
             </div>

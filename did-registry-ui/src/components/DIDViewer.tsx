@@ -190,11 +190,11 @@ export function DIDViewer({ did, verifications }: DIDViewerProps) {
                         {(() => {
                           switch (verification.level.toString()) {
                             case "1":
-                              return "Basic Verification";
+                              return "Account Verification";
                             case "2":
-                              return "Enhanced Verification";
+                              return "ID Verification";
                             case "3":
-                              return "Premium Verification";
+                              return "KYC Verification";
                             default:
                               return `Level ${verification.level.toString()} Verification`;
                           }
@@ -204,7 +204,7 @@ export function DIDViewer({ did, verifications }: DIDViewerProps) {
                         {(() => {
                           switch (verification.level.toString()) {
                             case "1":
-                              return "Email and phone verification";
+                              return "Account ownership verification";
                             case "2":
                               return "Government ID verification";
                             case "3":

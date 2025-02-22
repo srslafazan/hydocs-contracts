@@ -11,6 +11,7 @@ interface DIDInfo {
   verificationLevel: number;
   isVerified: boolean;
   verificationStatus: string;
+  active: boolean;
 }
 
 function DIDList() {
@@ -37,6 +38,7 @@ function DIDList() {
             try {
               const owner = await actions.service.getDIDOwner(didId);
               const isVerified = await actions.service.isVerified(didId);
+              const metadata = await actions.service.getDIDMetadata(didId);
 
               // Get verification details
               const verifierRole = ethers.utils.keccak256(
@@ -80,6 +82,7 @@ function DIDList() {
                 verificationLevel: highestLevel,
                 isVerified,
                 verificationStatus: currentStatus,
+                active: metadata.active,
               };
             } catch (err) {
               console.error(`Error fetching details for DID ${didId}:`, err);
@@ -104,11 +107,11 @@ function DIDList() {
   const getVerificationLevelText = (level: number) => {
     switch (level) {
       case 1:
-        return "Basic";
+        return "Account";
       case 2:
-        return "Enhanced";
+        return "ID";
       case 3:
-        return "Premium";
+        return "KYC";
       default:
         return "None";
     }
@@ -160,11 +163,16 @@ function DIDList() {
                     Owner
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Verification Level
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Status
                   </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Verification Level
+                  </th>
+                  {/* TODO - might be unnecessary to have this column */}
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Verification Status
+                  </th>
+                  {/* TODO - might be unnecessary to have this column */}
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Actions
                   </th>
@@ -178,6 +186,18 @@ function DIDList() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap font-mono text-sm text-gray-900">
                       {did.owner.slice(0, 6)}...{did.owner.slice(-4)}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span
+                        className={`px-3 py-1 rounded-full text-sm 
+                        ${
+                          did.active
+                            ? "bg-green-100 text-green-800"
+                            : "bg-red-100 text-red-800"
+                        }`}
+                      >
+                        {did.active ? "Active" : "Deactivated"}
+                      </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span

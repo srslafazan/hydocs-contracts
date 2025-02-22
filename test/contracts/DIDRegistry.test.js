@@ -334,7 +334,7 @@ describe("DIDRegistry", function () {
     });
 
     it("Should handle different verification levels", async function () {
-      // Test BASIC_VERIFICATION
+      // Test ACCOUNT_VERIFICATION
       await didRegistry
         .connect(verifier)
         .addVerification(didId, 1, oneYearFromNow, "0x");
@@ -344,14 +344,14 @@ describe("DIDRegistry", function () {
       );
       expect(verification.level).to.equal(1);
 
-      // Test ENHANCED_VERIFICATION
+      // Test ID_VERIFICATION
       await didRegistry
         .connect(verifier)
         .addVerification(didId, 2, oneYearFromNow, "0x");
       verification = await didRegistry.getVerification(didId, verifier.address);
       expect(verification.level).to.equal(2);
 
-      // Test PREMIUM_VERIFICATION
+      // Test KYC_VERIFICATION
       await didRegistry
         .connect(verifier)
         .addVerification(didId, 3, oneYearFromNow, "0x");

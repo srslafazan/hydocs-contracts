@@ -72,9 +72,9 @@ export function VerificationPanel({ didId }: VerificationPanelProps) {
             onChange={(e) => setLevel(Number(e.target.value))}
             className="w-full p-2 mt-1 border rounded"
           >
-            <option value={VerificationLevel.BASIC}>Basic</option>
-            <option value={VerificationLevel.ENHANCED}>Enhanced</option>
-            <option value={VerificationLevel.PREMIUM}>Premium</option>
+            <option value={VerificationLevel.NONE}>None</option>
+            <option value={VerificationLevel.ID}>Identity</option>
+            <option value={VerificationLevel.KYC}>Complete (KYC)</option>
           </select>
         </label>
 

@@ -18,7 +18,7 @@ A zero-knowledge proof-based system for managing decentralized identities (DIDs)
 
    - Whitelist of authorized verifiers
    - Verifier attestation process with cryptographic signatures
-   - Multiple verification levels (basic, enhanced, premium)
+   - Multiple verification levels (none, id, kyc)
    - Time-bound verification status
    - Support for verification metadata and credentials
    - Verifier reputation system

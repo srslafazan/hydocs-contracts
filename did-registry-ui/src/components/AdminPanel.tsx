@@ -10,9 +10,7 @@ export function AdminPanel() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [currentVerification, setCurrentVerification] = useState<any>(null);
-  const [level, setLevel] = useState<VerificationLevel>(
-    VerificationLevel.BASIC
-  );
+  const [level, setLevel] = useState<VerificationLevel>(VerificationLevel.NONE);
   const [metadata, setMetadata] = useState("");
   const [addressToVerify, setAddressToVerify] = useState("");
   const [targetDidId, setTargetDidId] = useState<string | null>(null);
@@ -258,13 +256,13 @@ export function AdminPanel() {
                   className="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
                 >
                   <option value={1}>
-                    Basic - Email and phone verification
+                    Account Verification - Verify account ownership
                   </option>
                   <option value={2}>
-                    Enhanced - Government ID verification
+                    ID Verification - Government ID verification
                   </option>
                   <option value={3}>
-                    Premium - Full KYC with biometric verification
+                    KYC Verification - Full biometric verification
                   </option>
                 </select>
               </div>

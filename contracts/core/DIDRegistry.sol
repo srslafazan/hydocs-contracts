@@ -23,9 +23,10 @@ abstract contract DIDRegistry is IDID, AccessControl, Pausable, ReentrancyGuard 
     mapping(address => bytes32) private _addressToDID;
     
     // Verification levels
-    uint256 public constant BASIC_VERIFICATION = 1;
-    uint256 public constant ENHANCED_VERIFICATION = 2;
-    uint256 public constant PREMIUM_VERIFICATION = 3;
+    uint256 public constant NO_VERIFICATION = 0;
+    uint256 public constant ACCOUNT_VERIFICATION = 1;
+    uint256 public constant ID_VERIFICATION = 2;
+    uint256 public constant KYC_VERIFICATION = 3;
 
     // Keep track of verifiers in a set
     EnumerableSet.AddressSet private _verifierSet;
@@ -138,7 +139,7 @@ abstract contract DIDRegistry is IDID, AccessControl, Pausable, ReentrancyGuard 
     {
         require(hasRole(VERIFIER_ROLE, msg.sender), "DIDRegistry: Not a verifier");
         require(_dids[didId].active, "DIDRegistry: DID not active");
-        require(level <= PREMIUM_VERIFICATION, "DIDRegistry: Invalid verification level");
+        require(level <= KYC_VERIFICATION, "DIDRegistry: Invalid verification level");
         require(expiration > block.timestamp, "DIDRegistry: Invalid expiration");
 
         Verification storage verification = _verifications[didId][msg.sender];
