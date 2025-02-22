@@ -107,22 +107,28 @@ const DID_REGISTRY_ABI = {
 export class DIDRegistryService implements DIDRegistryInterface {
   private contract: ethers.Contract;
   private provider: ethers.providers.Provider;
-  protected _signer?: ethers.Signer;
+  protected _signer?: ethers.providers.JsonRpcSigner;
   private verifierRole?: string;
   private interface: ethers.utils.Interface;
 
   constructor(config: DIDRegistryConfig) {
+    const contractAddress =
+      process.env.NEXT_PUBLIC_DID_CONTRACT_ADDRESS || config.contractAddress;
+    if (!contractAddress || contractAddress === "") {
+      throw new Error("Contract address is required");
+    }
+
     this.provider = config.provider;
-    this._signer = config.signer;
+    this._signer = config.signer as ethers.providers.JsonRpcSigner;
 
     // Create interface for parsing events
     this.interface = new ethers.utils.Interface(DID_REGISTRY_ABI.abi);
 
     // Initialize contract instance
     this.contract = new ethers.Contract(
-      config.contractAddress,
-      this.interface,
-      config.signer || config.provider
+      contractAddress,
+      DID_REGISTRY_ABI.abi,
+      this._signer || this.provider
     );
 
     // Initialize verifier role
@@ -361,7 +367,7 @@ export class DIDRegistryService implements DIDRegistryInterface {
 
   // Helper Methods
   async connect(signer: ethers.Signer): Promise<void> {
-    this._signer = signer;
+    this._signer = signer as ethers.providers.JsonRpcSigner;
     this.contract = this.contract.connect(signer);
   }
 
@@ -388,7 +394,16 @@ export class DIDRegistryService implements DIDRegistryInterface {
 
       // Get the most recent DID
       const latestEvent = events[events.length - 1];
+      if (!latestEvent.args) {
+        console.error("Event args undefined");
+        return null;
+      }
+
       const didId = latestEvent.args.didId;
+      if (!didId) {
+        console.error("DID ID undefined in event args");
+        return null;
+      }
 
       // Verify the DID is still owned by this address
       const currentOwner = await this.getDIDOwner(didId);
@@ -408,6 +423,49 @@ export class DIDRegistryService implements DIDRegistryInterface {
     } catch (error) {
       console.error("Error getting DID events:", error);
       throw error;
+    }
+  }
+
+  async getAllDIDs(): Promise<DIDDocument[]> {
+    try {
+      // Get all DID created events
+      const events = await this.getAllDIDEvents();
+
+      // Get unique DIDs (in case of duplicates)
+      const uniqueDIDs = [
+        ...new Set(events.map((event) => event.args?.didId)),
+      ].filter(Boolean);
+
+      // Fetch details for each DID
+      const didDetails = await Promise.all(
+        uniqueDIDs.map(async (didId): Promise<DIDDocument | null> => {
+          try {
+            const [owner, identifiers, metadata] = await Promise.all([
+              this.getDIDOwner(didId),
+              this.getDIDIdentifiers(didId),
+              this.getDIDMetadata(didId),
+            ]);
+
+            return {
+              id: didId,
+              owner,
+              identifiers,
+              created: metadata.created,
+              updated: metadata.updated,
+              active: metadata.active,
+            };
+          } catch (err) {
+            console.error(`Error fetching details for DID ${didId}:`, err);
+            return null;
+          }
+        })
+      );
+
+      // Filter out any null results from errors
+      return didDetails.filter((did): did is DIDDocument => did !== null);
+    } catch (err) {
+      console.error("Error getting all DIDs:", err);
+      throw err;
     }
   }
 }

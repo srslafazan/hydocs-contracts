@@ -19,31 +19,6 @@ const inter = Inter({ subsets: ["latin"] });
 function DIDProviderWrapper({ children }: { children: React.ReactNode }) {
   const [service, setService] = useState<DIDRegistryService | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [accounts, setAccounts] = useState<string[]>([]);
-  const [selectedAccount, setSelectedAccount] = useState<string | null>(null);
-
-  useEffect(() => {
-    async function loadAccounts() {
-      try {
-        if (!window.ethereum) {
-          throw new Error("Please install MetaMask to use this application");
-        }
-
-        const accounts = await window.ethereum.request({
-          method: "eth_accounts",
-        });
-        setAccounts(accounts);
-        if (accounts.length > 0) {
-          setSelectedAccount(accounts[0]);
-        }
-      } catch (err: any) {
-        console.error("Error loading accounts:", err);
-        setError(err.message);
-      }
-    }
-
-    loadAccounts();
-  }, []);
 
   useEffect(() => {
     async function initializeService() {
@@ -52,118 +27,62 @@ function DIDProviderWrapper({ children }: { children: React.ReactNode }) {
           throw new Error("Please install MetaMask to use this application");
         }
 
+        const provider = new ethers.providers.Web3Provider(window.ethereum);
+
+        // Check if already connected
+        const accounts = await provider.listAccounts();
+        const signer = accounts.length > 0 ? provider.getSigner() : provider;
+
         const contractAddress = process.env.NEXT_PUBLIC_DID_CONTRACT_ADDRESS;
         if (!contractAddress) {
-          throw new Error(
-            "Contract address not found. Please make sure the contract is deployed and .env.local is set up correctly."
-          );
+          throw new Error("DID Registry contract address not configured");
         }
 
-        if (!ethers.utils.isAddress(contractAddress)) {
-          throw new Error(
-            "Invalid contract address format. Please check your .env.local file."
-          );
-        }
-
-        if (!selectedAccount) {
-          return; // Wait for account selection
-        }
-
-        // Create Web3Provider and signer
-        const provider = new ethers.providers.Web3Provider(window.ethereum);
-        const signer = provider.getSigner(selectedAccount);
-
-        // Create service instance
         const newService = new DIDRegistryService({
           contractAddress,
           provider,
           signer,
         });
 
+        // Set up event listeners for account changes
+        window.ethereum.on("accountsChanged", async (accounts: string[]) => {
+          if (accounts.length > 0) {
+            const newSigner = provider.getSigner();
+            await newService.connect(newSigner);
+          } else {
+            await newService.disconnect();
+          }
+        });
+
+        // Set up event listener for chain changes
+        window.ethereum.on("chainChanged", () => {
+          window.location.reload();
+        });
+
         setService(newService);
-        setError(null);
       } catch (err: any) {
-        console.error("Service initialization error:", err);
+        console.error("Error initializing service:", err);
         setError(err.message);
       }
     }
 
     initializeService();
-  }, [selectedAccount]);
 
-  const handleAccountChange = async () => {
-    try {
-      if (!window.ethereum) {
-        throw new Error("Please install MetaMask to use this application");
-      }
-      const accounts = await window.ethereum.request({
-        method: "eth_requestAccounts",
-      });
-      setAccounts(accounts);
-      if (accounts.length > 0) {
-        setSelectedAccount(accounts[0]);
-      }
-    } catch (err: any) {
-      console.error("Error switching account:", err);
-      setError(err.message);
-    }
-  };
-
-  useEffect(() => {
-    if (window.ethereum) {
-      window.ethereum.on("accountsChanged", (newAccounts: string[]) => {
-        setAccounts(newAccounts);
-        if (newAccounts.length > 0) {
-          setSelectedAccount(newAccounts[0]);
-        } else {
-          setSelectedAccount(null);
-        }
-      });
-    }
-
+    // Cleanup event listeners
     return () => {
       if (window.ethereum) {
         window.ethereum.removeListener("accountsChanged", () => {});
+        window.ethereum.removeListener("chainChanged", () => {});
       }
     };
   }, []);
 
   if (error) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <div className="max-w-md w-full p-6">
-          <div className="text-center">
-            <h2 className="text-lg font-medium text-red-600 mb-2">
-              Connection Error
-            </h2>
-            <p className="text-sm text-slate-600">{error}</p>
-            <button
-              onClick={() => window.location.reload()}
-              className="mt-4 text-sm text-blue-600 hover:text-blue-700"
-            >
-              Try Again
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (!selectedAccount) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <div className="max-w-md w-full p-6">
-          <div className="text-center">
-            <h2 className="text-lg font-medium text-slate-900 mb-4">
-              Connect Wallet
-            </h2>
-            <button
-              onClick={handleAccountChange}
-              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-            >
-              Connect MetaMask
-            </button>
-          </div>
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <h2 className="text-2xl font-semibold text-gray-900 mb-4">Error</h2>
+          <p className="text-gray-500">{error}</p>
         </div>
       </div>
     );
@@ -171,8 +90,11 @@ function DIDProviderWrapper({ children }: { children: React.ReactNode }) {
 
   if (!service) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <div className="text-sm text-slate-600">Initializing service...</div>
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <h2 className="text-2xl font-semibold text-gray-900 mb-4">Loading</h2>
+          <p className="text-gray-500">Initializing DID Registry...</p>
+        </div>
       </div>
     );
   }
@@ -189,7 +111,7 @@ export default function RootLayout({
     <html lang="en">
       <body className={inter.className}>
         <DIDProviderWrapper>
-          <div className="min-h-screen bg-slate-100">
+          <div className="min-h-screen bg-gray-50">
             <TopNav />
             {children}
           </div>

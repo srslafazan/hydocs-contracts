@@ -1,122 +1,89 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { ethers } from "ethers";
 import { useDID } from "../../contexts/DIDContext";
 import Link from "next/link";
+import { DIDDocument } from "../../types/DIDRegistry";
 
-interface DIDInfo {
-  id: string;
-  owner: string;
-  verificationLevel: number;
-  isVerified: boolean;
-  verificationStatus: string;
-  active: boolean;
-}
-
-function DIDList() {
-  const { actions } = useDID();
-  const [dids, setDids] = useState<DIDInfo[]>([]);
-  const [loading, setLoading] = useState(true);
+export default function DIDsPage() {
+  const { service, selectedAccount } = useDID();
+  const [dids, setDids] = useState<DIDDocument[]>([]);
+  const [verifications, setVerifications] = useState<{
+    [key: string]: { level: number; status: string };
+  }>({});
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [copiedDID, setCopiedDID] = useState<string | null>(null);
-
-  // Copy to clipboard function
-  const copyToClipboard = async (text: string) => {
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopiedDID(text);
-      setTimeout(() => setCopiedDID(null), 2000); // Reset after 2 seconds
-    } catch (err) {
-      console.error("Failed to copy text: ", err);
-    }
-  };
 
   useEffect(() => {
     async function loadDIDs() {
+      setIsLoading(true);
       try {
-        setLoading(true);
-        // Get all DID created events
-        const events = await actions.service.getAllDIDEvents();
+        const allDIDs = await service.getAllDIDs();
+        setDids(allDIDs);
 
-        // Get unique DIDs (in case of duplicates)
-        const uniqueDIDs = [
-          ...new Set(events.map((event) => event.args?.didId)),
-        ].filter(Boolean);
+        // Get verifications for each DID
+        const verificationPromises = allDIDs.map(async (did) => {
+          try {
+            const verifierRole = ethers.utils.keccak256(
+              ethers.utils.toUtf8Bytes("VERIFIER_ROLE")
+            );
+            const verifiers = await service.getRoleMemberArray(verifierRole);
 
-        // Fetch details for each DID
-        const didDetails = await Promise.all(
-          uniqueDIDs.map(async (didId): Promise<DIDInfo | null> => {
-            try {
-              const owner = await actions.service.getDIDOwner(didId);
-              const isVerified = await actions.service.isVerified(didId);
-              const metadata = await actions.service.getDIDMetadata(didId);
+            // Get highest level verification for each DID
+            let highestLevel = 0;
+            let activeStatus = "None";
 
-              // Get verification details
-              const verifierRole = ethers.utils.keccak256(
-                ethers.utils.toUtf8Bytes("VERIFIER_ROLE")
+            for (const verifier of verifiers) {
+              const verification = await service.getVerification(
+                did.id,
+                verifier
               );
-              const verifiers = await actions.service.getRoleMemberArray(
-                verifierRole
-              );
-
-              let highestLevel = 0;
-              let currentStatus = "None";
-
-              // Check verifications from all verifiers
-              for (const verifier of verifiers) {
-                const verification = await actions.service.getVerification(
-                  didId,
-                  verifier
-                );
-                if (verification.verifier !== ethers.constants.AddressZero) {
+              if (verification.verifier !== ethers.constants.AddressZero) {
+                const level = Number(verification.level);
+                if (level > highestLevel) {
+                  highestLevel = level;
                   const isActive =
                     verification.status ===
                     ethers.utils.keccak256(ethers.utils.toUtf8Bytes("ACTIVE"));
-                  const isExpired = ethers.BigNumber.from(
-                    verification.expiration
-                  ).lt(ethers.BigNumber.from(Math.floor(Date.now() / 1000)));
-
-                  if (isActive && !isExpired) {
-                    highestLevel = Math.max(highestLevel, verification.level);
-                    currentStatus = "Active";
-                  } else if (isExpired) {
-                    currentStatus = "Expired";
-                  } else {
-                    currentStatus = "Revoked";
-                  }
+                  activeStatus = isActive ? "Active" : "Inactive";
                 }
               }
-
-              return {
-                id: didId,
-                owner,
-                verificationLevel: highestLevel,
-                isVerified,
-                verificationStatus: currentStatus,
-                active: metadata.active,
-              };
-            } catch (err) {
-              console.error(`Error fetching details for DID ${didId}:`, err);
-              return null;
             }
-          })
-        );
 
-        // Filter out any null results from errors and set the state
-        setDids(didDetails.filter((did): did is DIDInfo => did !== null));
+            return {
+              didId: did.id,
+              level: highestLevel,
+              status: activeStatus,
+            };
+          } catch (err) {
+            console.error(
+              `Error getting verifications for DID ${did.id}:`,
+              err
+            );
+            return { didId: did.id, level: 0, status: "None" };
+          }
+        });
+
+        const verificationResults = await Promise.all(verificationPromises);
+        const verificationMap = verificationResults.reduce((acc, curr) => {
+          acc[curr.didId] = { level: curr.level, status: curr.status };
+          return acc;
+        }, {} as { [key: string]: { level: number; status: string } });
+
+        setVerifications(verificationMap);
       } catch (err) {
         console.error("Error loading DIDs:", err);
-        setError("Failed to load DIDs. Please try again later.");
+        setError(err instanceof Error ? err.message : "Failed to load DIDs");
       } finally {
-        setLoading(false);
+        setIsLoading(false);
       }
     }
 
     loadDIDs();
-  }, [actions.service]);
+  }, [service]);
 
-  const getVerificationLevelText = (level: number) => {
+  const getVerificationLevel = (level: number) => {
     switch (level) {
       case 1:
         return "Account";
@@ -129,176 +96,134 @@ function DIDList() {
     }
   };
 
-  if (loading) {
+  if (!selectedAccount) {
     return (
-      <div className="min-h-screen bg-slate-100 p-4">
-        <div className="max-w-6xl mx-auto">
-          <div className="flex items-center justify-center py-12">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="min-h-screen bg-slate-100 p-4">
-        <div className="max-w-6xl mx-auto">
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4 mt-4">
-            <p className="text-red-700">{error}</p>
-          </div>
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8">
+        <div className="text-center py-12">
+          <h2 className="text-2xl font-semibold text-gray-900 mb-4">
+            View DIDs
+          </h2>
+          <p className="text-gray-500">
+            Please connect your wallet to view DIDs
+          </p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-100 p-4">
-      <div className="max-w-6xl mx-auto">
-        <div className="bg-white shadow-lg rounded-lg overflow-hidden">
-          <div className="p-6 bg-gradient-to-r from-blue-600 to-blue-800">
-            <h1 className="text-2xl font-bold text-white">All Identities</h1>
-            <p className="text-blue-100 mt-2">
-              Showing {dids.length} registered identities
-            </p>
-          </div>
+    <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8">
+      <div className="bg-blue-600 text-white p-6 rounded-lg mb-6">
+        <h1 className="text-2xl font-bold">All Identities</h1>
+        <p className="mt-2">Showing {dids.length} registered identities</p>
+      </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="bg-gray-50">
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    DID
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Owner
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Activity Status
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Verification Level
-                  </th>
-                  {/* TODO - might be unnecessary to have this column */}
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Verification Status
-                  </th>
-                  {/* TODO - might be unnecessary to have this column */}
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {dids.map((did) => (
-                  <tr key={did.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center space-x-2">
-                        <span className="font-mono text-sm text-gray-900">
-                          {did.id.slice(0, 10)}...{did.id.slice(-8)}
-                        </span>
-                        <button
-                          onClick={() => copyToClipboard(did.id)}
-                          className="text-gray-400 hover:text-gray-600 transition-colors"
-                          title="Copy DID"
-                        >
-                          {copiedDID === did.id ? (
-                            <svg
-                              className="w-5 h-5 text-green-500"
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M5 13l4 4L19 7"
-                              />
-                            </svg>
-                          ) : (
-                            <svg
-                              className="w-5 h-5"
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"
-                              />
-                            </svg>
-                          )}
-                        </button>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap font-mono text-sm text-gray-900">
-                      {did.owner.slice(0, 6)}...{did.owner.slice(-4)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span
-                        className={`px-3 py-1 rounded-full text-sm 
-                        ${
-                          did.active
-                            ? "bg-green-100 text-green-800"
-                            : "bg-red-100 text-red-800"
-                        }`}
-                      >
-                        {did.active ? "Active" : "Deactivated"}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span
-                        className={`px-3 py-1 rounded-full text-sm 
-                        ${
-                          did.verificationLevel === 3
-                            ? "bg-green-100 text-green-800"
-                            : did.verificationLevel === 2
-                            ? "bg-blue-100 text-blue-800"
-                            : did.verificationLevel === 1
-                            ? "bg-yellow-100 text-yellow-800"
-                            : "bg-gray-100 text-gray-800"
-                        }`}
-                      >
-                        {getVerificationLevelText(did.verificationLevel)}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span
-                        className={`px-3 py-1 rounded-full text-sm 
-                        ${
-                          did.verificationStatus === "Active"
-                            ? "bg-green-100 text-green-800"
-                            : did.verificationStatus === "Expired"
-                            ? "bg-yellow-100 text-yellow-800"
-                            : did.verificationStatus === "Revoked"
-                            ? "bg-red-100 text-red-800"
-                            : "bg-gray-100 text-gray-800"
-                        }`}
-                      >
-                        {did.verificationStatus}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm">
-                      <Link
-                        href={`/did/${did.id}`}
-                        className="text-blue-600 hover:text-blue-800 font-medium"
-                      >
-                        View Details
-                      </Link>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+      {error && (
+        <div className="mb-4 p-4 bg-red-100 text-red-700 rounded-md">
+          {error}
         </div>
+      )}
+
+      <div className="bg-white shadow-md rounded-lg overflow-hidden">
+        {isLoading ? (
+          <div className="text-center py-12">
+            <p className="text-gray-500">Loading DIDs...</p>
+          </div>
+        ) : dids.length === 0 ? (
+          <div className="text-center py-12">
+            <p className="text-gray-500">No DIDs found</p>
+          </div>
+        ) : (
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  DID
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Owner
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Activity Status
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Verification Level
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Verification Status
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Actions
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {dids.map((did) => (
+                <tr key={did.id}>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                    <div className="group relative">
+                      <span className="cursor-help font-mono">
+                        {`${did.id.slice(0, 10)}...${did.id.slice(-8)}`}
+                      </span>
+                      <span className="invisible group-hover:visible absolute z-10 bg-black text-white text-xs rounded py-1 px-2 -mt-8">
+                        {did.id}
+                      </span>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 font-mono">
+                    {`${did.owner.slice(0, 6)}...${did.owner.slice(-4)}`}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span
+                      className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                        did.active
+                          ? "bg-green-100 text-green-800"
+                          : "bg-red-100 text-red-800"
+                      }`}
+                    >
+                      {did.active ? "Active" : "Inactive"}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span
+                      className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                        verifications[did.id]?.level === 3
+                          ? "bg-green-100 text-green-800"
+                          : verifications[did.id]?.level === 2
+                          ? "bg-yellow-100 text-yellow-800"
+                          : verifications[did.id]?.level === 1
+                          ? "bg-blue-100 text-blue-800"
+                          : "bg-gray-100 text-gray-800"
+                      }`}
+                    >
+                      {getVerificationLevel(verifications[did.id]?.level || 0)}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span
+                      className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                        verifications[did.id]?.status === "Active"
+                          ? "bg-green-100 text-green-800"
+                          : "bg-gray-100 text-gray-800"
+                      }`}
+                    >
+                      {verifications[did.id]?.status || "None"}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                    <Link
+                      href={`/dids/${did.id}`}
+                      className="text-blue-600 hover:text-blue-900"
+                    >
+                      View Details
+                    </Link>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
     </div>
   );
 }
-
-export default DIDList;

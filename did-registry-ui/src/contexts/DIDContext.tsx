@@ -7,6 +7,7 @@ import React, {
   useEffect,
   useMemo,
   useCallback,
+  useState,
 } from "react";
 import { ethers } from "ethers";
 import { DIDRegistryService } from "../services/DIDRegistryService";
@@ -21,6 +22,9 @@ interface DIDContextType {
   didState: DIDState;
   verifierState: VerifierState;
   service: DIDRegistryService;
+  selectedAccount: string | null;
+  connectWallet: () => Promise<void>;
+  disconnectWallet: () => Promise<void>;
   actions: {
     createDID: (identifiers: string[]) => Promise<string>;
     updateDID: (didId: string, identifiers: string[]) => Promise<void>;
@@ -86,6 +90,41 @@ export function DIDProvider({ children, service }: DIDProviderProps) {
     pendingVerifications: [],
   });
 
+  const [selectedAccount, setSelectedAccount] = useState<string | null>(null);
+
+  const connectWallet = useCallback(async () => {
+    try {
+      if (!window.ethereum) {
+        throw new Error("Please install MetaMask to use this application");
+      }
+
+      const accounts = await window.ethereum.request({
+        method: "eth_requestAccounts",
+      });
+
+      if (accounts.length > 0) {
+        const provider = new ethers.providers.Web3Provider(window.ethereum);
+        const signer = provider.getSigner();
+        await service.connect(signer);
+        setSelectedAccount(accounts[0]);
+        await loadUserDID();
+      }
+    } catch (error: any) {
+      console.error("Error connecting wallet:", error);
+      dispatch({ type: "SET_ERROR", payload: error.message });
+    }
+  }, [service]);
+
+  const disconnectWallet = useCallback(async () => {
+    try {
+      await service.disconnect();
+      setSelectedAccount(null);
+    } catch (error: any) {
+      console.error("Error disconnecting wallet:", error);
+      dispatch({ type: "SET_ERROR", payload: error.message });
+    }
+  }, [service]);
+
   // Memoize individual actions
   const loadUserDID = useCallback(async () => {
     dispatch({ type: "SET_LOADING", payload: true });
@@ -110,6 +149,27 @@ export function DIDProvider({ children, service }: DIDProviderProps) {
       dispatch({ type: "SET_LOADING", payload: false });
     }
   }, [service]);
+
+  // Check for existing connection on mount
+  useEffect(() => {
+    async function checkConnection() {
+      try {
+        if (window.ethereum) {
+          const provider = new ethers.providers.Web3Provider(window.ethereum);
+          const accounts = await provider.listAccounts();
+          if (accounts.length > 0) {
+            setSelectedAccount(accounts[0]);
+            await loadUserDID();
+          }
+        }
+      } catch (error: any) {
+        console.error("Error checking connection:", error);
+        dispatch({ type: "SET_ERROR", payload: error.message });
+      }
+    }
+
+    checkConnection();
+  }, [loadUserDID]);
 
   const loadDID = useCallback(
     async (didId: string) => {
@@ -297,7 +357,15 @@ export function DIDProvider({ children, service }: DIDProviderProps) {
 
   return (
     <DIDContext.Provider
-      value={{ didState: state, verifierState: state, service, actions }}
+      value={{
+        didState: state,
+        verifierState: state,
+        service,
+        actions,
+        selectedAccount,
+        connectWallet,
+        disconnectWallet,
+      }}
     >
       {children}
     </DIDContext.Provider>
