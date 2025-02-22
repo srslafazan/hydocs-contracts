@@ -91,9 +91,9 @@ export default function DocumentList({
         const results = await getAllDocuments();
         if (showSignerInbox) {
           docs = await getDocumentsToSign(account!);
-        } else {
+        } else if (showSignedDocuments) {
           // Get user's DID if they have one
-          const didContract = await getDIDRegistryContract();
+          const didContract = getDIDRegistryContract();
           const userDid = await didContract.getDIDByAddress(account!);
           console.log("User DID:", userDid);
           console.log("User address:", account);

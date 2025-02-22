@@ -4,12 +4,19 @@ import { useState } from "react";
 import Navigation from "../../components/Navigation";
 import DocumentList from "../../components/DocumentList";
 import { useWeb3 } from "../../contexts/Web3Context";
-
-type TabType = "to-sign" | "signed";
+import { SignerTabType, getSignerTab, setSignerTab } from "../../utils/storage";
 
 export default function SignerInbox() {
   const { account } = useWeb3();
-  const [activeTab, setActiveTab] = useState<TabType>("to-sign");
+  const [activeTab, setActiveTab] = useState<SignerTabType>(() =>
+    getSignerTab()
+  );
+
+  // Update local storage when tab changes
+  const handleTabChange = (tab: SignerTabType) => {
+    setActiveTab(tab);
+    setSignerTab(tab);
+  };
 
   if (!account) {
     return (
@@ -45,7 +52,7 @@ export default function SignerInbox() {
         <div className="border-b border-gray-200 mb-6">
           <nav className="-mb-px flex space-x-8" aria-label="Tabs">
             <button
-              onClick={() => setActiveTab("to-sign")}
+              onClick={() => handleTabChange("to-sign")}
               className={`${
                 activeTab === "to-sign"
                   ? "border-blue-500 text-blue-600"
@@ -55,7 +62,7 @@ export default function SignerInbox() {
               Documents to Sign
             </button>
             <button
-              onClick={() => setActiveTab("signed")}
+              onClick={() => handleTabChange("signed")}
               className={`${
                 activeTab === "signed"
                   ? "border-blue-500 text-blue-600"

@@ -1,18 +1,29 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import DocumentList from "../components/DocumentList";
 import CreateDocumentModal from "../components/CreateDocumentModal";
 import Navigation from "../components/Navigation";
 import { useWeb3 } from "../contexts/Web3Context";
-
-type TabType = "my-documents" | "all-documents";
+import {
+  DocumentsTabType,
+  getDocumentsTab,
+  setDocumentsTab,
+} from "../utils/storage";
 
 export default function Home() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const { account, connectWallet, disconnectWallet, isConnecting, error } =
     useWeb3();
-  const [activeTab, setActiveTab] = useState<TabType>("my-documents");
+  const [activeTab, setActiveTab] = useState<DocumentsTabType>(() =>
+    getDocumentsTab()
+  );
+
+  // Update local storage when tab changes
+  const handleTabChange = (tab: DocumentsTabType) => {
+    setActiveTab(tab);
+    setDocumentsTab(tab);
+  };
 
   const formatAddress = (address: string | null | undefined) => {
     if (!address || typeof address !== "string") return "";
@@ -40,7 +51,7 @@ export default function Home() {
         <div className="border-b border-gray-200 mb-6">
           <nav className="-mb-px flex space-x-8" aria-label="Tabs">
             <button
-              onClick={() => setActiveTab("my-documents")}
+              onClick={() => handleTabChange("my-documents")}
               className={`${
                 activeTab === "my-documents"
                   ? "border-blue-500 text-blue-600"
@@ -50,7 +61,7 @@ export default function Home() {
               My Documents
             </button>
             <button
-              onClick={() => setActiveTab("all-documents")}
+              onClick={() => handleTabChange("all-documents")}
               className={`${
                 activeTab === "all-documents"
                   ? "border-blue-500 text-blue-600"
