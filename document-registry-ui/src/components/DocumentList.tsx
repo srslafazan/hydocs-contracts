@@ -2,61 +2,21 @@ import { useState, useEffect, useCallback } from "react";
 import { useDocumentRegistry } from "../contexts/DocumentRegistryContext";
 import { Document, DocumentStatus, DocumentType } from "../types/documents";
 import CreateDocumentModal from "./CreateDocumentModal";
+import DocumentDetailsModal from "./DocumentDetailsModal";
 import { useWeb3 } from "../contexts/Web3Context";
-import { ethers } from "ethers";
-
-// Helper function to format hash values
-const formatHash = (hash: string) => {
-  try {
-    // If it's a bytes32 hex string, try to convert it to UTF-8
-    if (hash.startsWith("0x")) {
-      // First try to decode as UTF-8
-      try {
-        const decoded = ethers.toUtf8String(hash).trim().replace(/\0/g, "");
-        if (decoded && /^[\x20-\x7E]*$/.test(decoded)) {
-          return decoded;
-        }
-      } catch {
-        // If UTF-8 decoding fails, show truncated hex
-        return `${hash.slice(0, 6)}...${hash.slice(-4)}`;
-      }
-    }
-    return hash;
-  } catch (err) {
-    console.error("Error formatting hash:", err);
-    return hash;
-  }
-};
-
-// Helper function to format document type
-const formatDocumentType = (typeHash: string): string => {
-  // Map of known document type hashes to their string values
-  const documentTypeMap: { [key: string]: string } = {
-    [ethers.id("GENERAL")]: "GENERAL",
-    [ethers.id("CONTRACT")]: "CONTRACT",
-    [ethers.id("CERTIFICATE")]: "CERTIFICATE",
-    [ethers.id("LICENSE")]: "LICENSE",
-    [ethers.id("IDENTITY")]: "IDENTITY",
-  };
-
-  return documentTypeMap[typeHash] || "Unknown";
-};
-
-// Helper function to format document status
-const formatDocumentStatus = (statusHash: string): string => {
-  // Map of known status hashes to their string values
-  const statusMap: { [key: string]: string } = {
-    [ethers.id("ACTIVE")]: "ACTIVE",
-    [ethers.id("EXPIRED")]: "EXPIRED",
-    [ethers.id("REVOKED")]: "REVOKED",
-  };
-
-  return statusMap[statusHash] || "Unknown";
-};
+import {
+  formatHash,
+  formatDocumentType,
+  formatDocumentStatus,
+} from "../utils/formatters";
 
 export default function DocumentList() {
   const [documents, setDocuments] = useState<Document[]>([]);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [selectedDocument, setSelectedDocument] = useState<Document | null>(
+    null
+  );
+  const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const { account } = useWeb3();
   const {
@@ -64,6 +24,9 @@ export default function DocumentList() {
     signDocument,
     revokeDocument,
     getDocument,
+    getSignatures,
+    getRequiredSigners,
+    hasAllRequiredSignatures,
     error: contractError,
     getDocumentsByOwner,
   } = useDocumentRegistry();
@@ -92,6 +55,11 @@ export default function DocumentList() {
   const handleCreateDocument = async () => {
     await refreshDocuments();
     setIsCreateModalOpen(false);
+  };
+
+  const handleViewDocument = async (doc: Document) => {
+    setSelectedDocument(doc);
+    setIsDetailsModalOpen(true);
   };
 
   if (!account) {
@@ -217,9 +185,7 @@ export default function DocumentList() {
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     <button
                       className="text-indigo-600 hover:text-indigo-900 mr-4"
-                      onClick={() => {
-                        /* TODO: View document details */
-                      }}
+                      onClick={() => handleViewDocument(doc)}
                     >
                       View
                     </button>
@@ -257,6 +223,17 @@ export default function DocumentList() {
         onClose={() => setIsCreateModalOpen(false)}
         onSuccess={handleCreateDocument}
       />
+
+      {selectedDocument && (
+        <DocumentDetailsModal
+          isOpen={isDetailsModalOpen}
+          onClose={() => {
+            setIsDetailsModalOpen(false);
+            setSelectedDocument(null);
+          }}
+          document={selectedDocument}
+        />
+      )}
     </div>
   );
 }
