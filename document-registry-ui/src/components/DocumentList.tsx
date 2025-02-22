@@ -3,6 +3,7 @@ import { useDocumentRegistry } from "../contexts/DocumentRegistryContext";
 import { Document, DocumentStatus, DocumentType } from "../types/documents";
 import CreateDocumentModal from "./CreateDocumentModal";
 import DocumentDetailsModal from "./DocumentDetailsModal";
+import SignDocumentModal from "./SignDocumentModal";
 import { useWeb3 } from "../contexts/Web3Context";
 import {
   formatHash,
@@ -17,6 +18,7 @@ export default function DocumentList() {
     null
   );
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
+  const [isSignModalOpen, setIsSignModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const { account } = useWeb3();
   const {
@@ -60,6 +62,11 @@ export default function DocumentList() {
   const handleViewDocument = async (doc: Document) => {
     setSelectedDocument(doc);
     setIsDetailsModalOpen(true);
+  };
+
+  const handleSignDocument = async (doc: Document) => {
+    setSelectedDocument(doc);
+    setIsSignModalOpen(true);
   };
 
   if (!account) {
@@ -169,9 +176,11 @@ export default function DocumentList() {
                     <span
                       className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full
                       ${
-                        doc.status === DocumentStatus.ACTIVE
+                        formatDocumentStatus(doc.status).toLowerCase() ===
+                        DocumentStatus.ACTIVE.toLowerCase()
                           ? "bg-green-100 text-green-800"
-                          : doc.status === DocumentStatus.REVOKED
+                          : formatDocumentStatus(doc.status).toLowerCase() ===
+                            DocumentStatus.REVOKED.toLowerCase()
                           ? "bg-red-100 text-red-800"
                           : "bg-yellow-100 text-yellow-800"
                       }`}
@@ -191,22 +200,27 @@ export default function DocumentList() {
                     </button>
                     <button
                       className="text-green-600 hover:text-green-900 mr-4"
-                      onClick={() => {
-                        /* TODO: Sign document */
-                      }}
+                      onClick={() => handleSignDocument(doc)}
                     >
                       Sign
                     </button>
                     <button
-                      className="text-red-600 hover:text-red-900"
+                      className={`${
+                        doc.status === DocumentStatus.REVOKED
+                          ? "text-gray-400 cursor-not-allowed"
+                          : "text-red-600 hover:text-red-900"
+                      }`}
                       onClick={async () => {
                         try {
-                          await revokeDocument(doc.id);
-                          await refreshDocuments();
+                          if (doc.status !== DocumentStatus.REVOKED) {
+                            await revokeDocument(doc.id);
+                            await refreshDocuments();
+                          }
                         } catch (err) {
                           console.error("Error revoking document:", err);
                         }
                       }}
+                      disabled={doc.status === DocumentStatus.REVOKED}
                     >
                       Revoke
                     </button>
@@ -225,14 +239,25 @@ export default function DocumentList() {
       />
 
       {selectedDocument && (
-        <DocumentDetailsModal
-          isOpen={isDetailsModalOpen}
-          onClose={() => {
-            setIsDetailsModalOpen(false);
-            setSelectedDocument(null);
-          }}
-          document={selectedDocument}
-        />
+        <>
+          <DocumentDetailsModal
+            isOpen={isDetailsModalOpen}
+            onClose={() => {
+              setIsDetailsModalOpen(false);
+              setSelectedDocument(null);
+            }}
+            document={selectedDocument}
+          />
+          <SignDocumentModal
+            isOpen={isSignModalOpen}
+            onClose={() => {
+              setIsSignModalOpen(false);
+              setSelectedDocument(null);
+            }}
+            document={selectedDocument}
+            onSuccess={refreshDocuments}
+          />
+        </>
       )}
     </div>
   );
