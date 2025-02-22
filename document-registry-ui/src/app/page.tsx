@@ -3,6 +3,7 @@
 import { useState } from "react";
 import DocumentList from "../components/DocumentList";
 import CreateDocumentModal from "../components/CreateDocumentModal";
+import Navigation from "../components/Navigation";
 import { useWeb3 } from "../contexts/Web3Context";
 
 export default function Home() {
@@ -22,12 +23,9 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-gray-50">
-      <nav className="bg-white shadow">
+      <div className="bg-white shadow">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="flex h-16 justify-between items-center">
-            <div className="flex-shrink-0">
-              <h1 className="text-xl font-bold">Document Registry</h1>
-            </div>
+          <div className="flex h-16 justify-end items-center">
             <div className="flex items-center space-x-4">
               {error && <p className="text-sm text-red-600">{error}</p>}
               {account ? (
@@ -54,10 +52,12 @@ export default function Home() {
             </div>
           </div>
         </div>
-      </nav>
+      </div>
+
+      <Navigation />
 
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8">
-        <DocumentList />
+        <DocumentList showAllDocuments />
       </div>
 
       <CreateDocumentModal

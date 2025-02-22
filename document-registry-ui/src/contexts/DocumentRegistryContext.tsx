@@ -15,7 +15,11 @@ import DocumentRegistryABI from "../contracts/DocumentRegistry.sol/DocumentRegis
 import DIDRegistryABI from "../contracts/DIDRegistry.sol/DIDRegistry.json";
 import { Contract } from "ethers";
 import { useWeb3 } from "./Web3Context";
-import { Document, DocumentSignature } from "../types/documents";
+import {
+  Document,
+  DocumentSignature,
+  DocumentStatus,
+} from "../types/documents";
 import { ethers } from "ethers";
 
 interface DocumentRegistryContextType {
@@ -54,6 +58,10 @@ interface DocumentRegistryContextType {
   // Loading States
   isLoading: boolean;
   error: Error | null;
+
+  // New functions
+  getAllDocuments: () => Promise<Document[]>;
+  getDocumentsToSign: (address: string) => Promise<Document[]>;
 }
 
 const DocumentRegistryContext = createContext<
@@ -382,6 +390,86 @@ export function DocumentRegistryProvider({
     [getDocumentRegistryContract, getDocument, provider]
   );
 
+  const getAllDocuments = useCallback(async (): Promise<Document[]> => {
+    const contract = await getDocumentRegistryContract();
+    if (!contract || !provider) return [];
+
+    try {
+      const filter = {
+        address: await contract.getAddress(),
+        topics: [
+          "0x56b1b6006a137d79a16380b47d350b1663d9c46a31a1ec0090f77f7a4327b130", // DocumentRegistered event
+        ],
+        fromBlock: 0,
+        toBlock: "latest",
+      };
+
+      console.log(
+        "Getting all documents from contract:",
+        await contract.getAddress()
+      );
+      const logs = await provider.getLogs(filter);
+      console.log("Found", logs.length, "document registration events");
+
+      const documentPromises = logs.map(async (log) => {
+        const documentId = log.topics[1];
+        return getDocument(documentId);
+      });
+
+      const documents = await Promise.all(documentPromises);
+      return documents.filter((doc): doc is Document => doc !== null);
+    } catch (error) {
+      console.error("Error getting all documents:", error);
+      return [];
+    }
+  }, [provider, getDocument, getDocumentRegistryContract]);
+
+  const getDocumentsToSign = useCallback(
+    async (address: string): Promise<Document[]> => {
+      const contract = await getDocumentRegistryContract();
+      if (!contract || !provider || !address) return [];
+
+      try {
+        const allDocs = await getAllDocuments();
+        const docsToSign = await Promise.all(
+          allDocs.map(async (doc) => {
+            const requiredSigners = await getRequiredSigners(doc.id);
+            const signatures = await getSignatures(doc.id);
+
+            // Check if the address is a required signer and hasn't signed yet
+            const isRequiredSigner = requiredSigners.some(
+              (signer) => signer.toLowerCase() === address.toLowerCase()
+            );
+            const hasSigned = signatures.some(
+              (sig) => sig.signerDid.toLowerCase() === address.toLowerCase()
+            );
+
+            if (
+              isRequiredSigner &&
+              !hasSigned &&
+              doc.status !== DocumentStatus.REVOKED
+            ) {
+              return doc;
+            }
+            return null;
+          })
+        );
+
+        return docsToSign.filter((doc): doc is Document => doc !== null);
+      } catch (error) {
+        console.error("Error getting documents to sign:", error);
+        return [];
+      }
+    },
+    [
+      provider,
+      getDocumentRegistryContract,
+      getAllDocuments,
+      getRequiredSigners,
+      getSignatures,
+    ]
+  );
+
   return (
     <DocumentRegistryContext.Provider
       value={{
@@ -397,6 +485,8 @@ export function DocumentRegistryProvider({
         getDocumentsByTimeRange,
         isLoading,
         error,
+        getAllDocuments,
+        getDocumentsToSign,
       }}
     >
       {children}

@@ -11,7 +11,17 @@ import {
   formatDocumentStatus,
 } from "../utils/formatters";
 
-export default function DocumentList() {
+interface DocumentListProps {
+  showAllDocuments?: boolean;
+  showMyDocuments?: boolean;
+  showSignerInbox?: boolean;
+}
+
+export default function DocumentList({
+  showAllDocuments = false,
+  showMyDocuments = false,
+  showSignerInbox = false,
+}: DocumentListProps) {
   const [documents, setDocuments] = useState<Document[]>([]);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [selectedDocument, setSelectedDocument] = useState<Document | null>(
@@ -31,15 +41,25 @@ export default function DocumentList() {
     hasAllRequiredSignatures,
     error: contractError,
     getDocumentsByOwner,
+    getAllDocuments,
+    getDocumentsToSign,
   } = useDocumentRegistry();
 
   const refreshDocuments = useCallback(async () => {
-    if (!account) return;
+    if (!account && !showAllDocuments) return;
 
     setIsLoading(true);
     try {
-      console.log("Fetching documents for account:", account);
-      const docs = await getDocumentsByOwner(account);
+      let docs: Document[] = [];
+
+      if (showAllDocuments) {
+        docs = await getAllDocuments();
+      } else if (showMyDocuments) {
+        docs = await getDocumentsByOwner(account!);
+      } else if (showSignerInbox) {
+        docs = await getDocumentsToSign(account!);
+      }
+
       console.log("Retrieved documents:", docs);
       setDocuments(docs);
     } catch (err) {
@@ -47,10 +67,18 @@ export default function DocumentList() {
     } finally {
       setIsLoading(false);
     }
-  }, [account, getDocumentsByOwner]);
+  }, [
+    account,
+    showAllDocuments,
+    showMyDocuments,
+    showSignerInbox,
+    getAllDocuments,
+    getDocumentsByOwner,
+    getDocumentsToSign,
+  ]);
 
   useEffect(() => {
-    console.log("DocumentList mounted/updated, account:", account);
+    console.log("DocumentList mounted/updated");
     refreshDocuments();
   }, [refreshDocuments]);
 
