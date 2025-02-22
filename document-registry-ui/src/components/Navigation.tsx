@@ -15,8 +15,7 @@ export default function Navigation() {
   };
 
   const navItems = [
-    { path: "/", label: "All Documents" },
-    { path: "/my-documents", label: "My Documents" },
+    { path: "/", label: "Documents" },
     { path: "/signer-inbox", label: "Signer Inbox" },
   ];
 
