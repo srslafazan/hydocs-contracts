@@ -264,12 +264,12 @@ export function DocumentRegistryProvider({
         setError(null);
         const contract = getDocumentRegistryContract();
 
-        // Get event signature hash
+        // Get event signature hash - note the indexed parameters
         const eventSignature =
-          "DocumentRegistered(bytes32,bytes32,bytes32,address,bytes32,uint256,uint256)";
+          "DocumentRegistered(bytes32 indexed,bytes32,bytes32,address indexed,bytes32 indexed,uint256,uint256)";
         const eventTopic = ethers.id(eventSignature);
 
-        // Create filter with topics
+        // Create filter with topics - owner is the second indexed parameter (index 3)
         const ownerTopic = ethers.zeroPadValue(owner.toLowerCase(), 32);
         const events = await provider?.getLogs({
           address: contract.target,
@@ -283,13 +283,21 @@ export function DocumentRegistryProvider({
         // Fetch full document details for each event
         const documents = await Promise.all(
           events.map(async (event) => {
-            const parsedLog = contract.interface.parseLog({
-              topics: event.topics as string[],
-              data: event.data,
-            });
-            if (!parsedLog) return null;
-            const documentId = parsedLog.args[0] as string;
-            return await getDocument(documentId);
+            try {
+              const parsedLog = contract.interface.parseLog({
+                topics: event.topics as string[],
+                data: event.data,
+              });
+              if (!parsedLog) return null;
+
+              // documentId is the first indexed parameter
+              const documentId = parsedLog.args[0];
+              console.log("Found document:", documentId);
+              return await getDocument(documentId);
+            } catch (err) {
+              console.error("Error parsing log:", err);
+              return null;
+            }
           })
         );
 
@@ -301,6 +309,7 @@ export function DocumentRegistryProvider({
 
         return validDocuments;
       } catch (err: any) {
+        console.error("Error fetching documents:", err);
         setError(err);
         throw err;
       } finally {

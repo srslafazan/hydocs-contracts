@@ -23,7 +23,9 @@ export default function DocumentList() {
 
     setIsLoading(true);
     try {
+      console.log("Fetching documents for account:", account);
       const docs = await getDocumentsByOwner(account);
+      console.log("Retrieved documents:", docs);
       setDocuments(docs);
     } catch (err) {
       console.error("Error fetching documents:", err);
@@ -33,6 +35,7 @@ export default function DocumentList() {
   }, [account, getDocumentsByOwner]);
 
   useEffect(() => {
+    console.log("DocumentList mounted/updated, account:", account);
     refreshDocuments();
   }, [refreshDocuments]);
 
