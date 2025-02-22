@@ -14,7 +14,6 @@ const formatHash = (hash: string) => {
       try {
         const decoded = ethers.toUtf8String(hash).trim().replace(/\0/g, "");
         if (decoded && /^[\x20-\x7E]*$/.test(decoded)) {
-          // Check if result contains only printable characters
           return decoded;
         }
       } catch {
@@ -27,6 +26,32 @@ const formatHash = (hash: string) => {
     console.error("Error formatting hash:", err);
     return hash;
   }
+};
+
+// Helper function to format document type
+const formatDocumentType = (typeHash: string): string => {
+  // Map of known document type hashes to their string values
+  const documentTypeMap: { [key: string]: string } = {
+    [ethers.id("GENERAL")]: "GENERAL",
+    [ethers.id("CONTRACT")]: "CONTRACT",
+    [ethers.id("CERTIFICATE")]: "CERTIFICATE",
+    [ethers.id("LICENSE")]: "LICENSE",
+    [ethers.id("IDENTITY")]: "IDENTITY",
+  };
+
+  return documentTypeMap[typeHash] || "Unknown";
+};
+
+// Helper function to format document status
+const formatDocumentStatus = (statusHash: string): string => {
+  // Map of known status hashes to their string values
+  const statusMap: { [key: string]: string } = {
+    [ethers.id("ACTIVE")]: "ACTIVE",
+    [ethers.id("EXPIRED")]: "EXPIRED",
+    [ethers.id("REVOKED")]: "REVOKED",
+  };
+
+  return statusMap[statusHash] || "Unknown";
 };
 
 export default function DocumentList() {
@@ -170,7 +195,7 @@ export default function DocumentList() {
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {formatHash(doc.documentType)}
+                    {formatDocumentType(doc.documentType)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span
@@ -183,7 +208,7 @@ export default function DocumentList() {
                           : "bg-yellow-100 text-yellow-800"
                       }`}
                     >
-                      {formatHash(doc.status)}
+                      {formatDocumentStatus(doc.status)}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
