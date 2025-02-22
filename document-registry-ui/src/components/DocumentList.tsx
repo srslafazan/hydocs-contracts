@@ -206,13 +206,17 @@ export default function DocumentList() {
                     </button>
                     <button
                       className={`${
-                        doc.status === DocumentStatus.REVOKED
+                        formatDocumentStatus(doc.status) ===
+                        DocumentStatus.REVOKED
                           ? "text-gray-400 cursor-not-allowed"
                           : "text-red-600 hover:text-red-900"
                       }`}
                       onClick={async () => {
                         try {
-                          if (doc.status !== DocumentStatus.REVOKED) {
+                          if (
+                            formatDocumentStatus(doc.status) !==
+                            DocumentStatus.REVOKED
+                          ) {
                             await revokeDocument(doc.id);
                             await refreshDocuments();
                           }
@@ -220,7 +224,10 @@ export default function DocumentList() {
                           console.error("Error revoking document:", err);
                         }
                       }}
-                      disabled={doc.status === DocumentStatus.REVOKED}
+                      disabled={
+                        formatDocumentStatus(doc.status) ===
+                        DocumentStatus.REVOKED
+                      }
                     >
                       Revoke
                     </button>
