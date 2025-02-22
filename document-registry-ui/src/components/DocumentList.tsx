@@ -1,6 +1,11 @@
 import { useState, useEffect, useCallback } from "react";
 import { useDocumentRegistry } from "../contexts/DocumentRegistryContext";
-import { Document, DocumentStatus, DocumentType } from "../types/documents";
+import {
+  Document,
+  DocumentStatus,
+  DocumentType,
+  DocumentSignature,
+} from "../types/documents";
 import CreateDocumentModal from "./CreateDocumentModal";
 import DocumentDetailsModal from "./DocumentDetailsModal";
 import SignDocumentModal from "./SignDocumentModal";
@@ -10,19 +15,25 @@ import {
   formatDocumentType,
   formatDocumentStatus,
 } from "../utils/formatters";
+import { ethers } from "ethers";
 
 interface DocumentListProps {
   showAllDocuments?: boolean;
   showMyDocuments?: boolean;
   showSignerInbox?: boolean;
+  showSignedDocuments?: boolean;
 }
 
 export default function DocumentList({
   showAllDocuments = false,
   showMyDocuments = false,
   showSignerInbox = false,
+  showSignedDocuments = false,
 }: DocumentListProps) {
   const [documents, setDocuments] = useState<Document[]>([]);
+  const [documentSignatures, setDocumentSignatures] = useState<
+    Record<string, DocumentSignature[]>
+  >({});
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [selectedDocument, setSelectedDocument] = useState<Document | null>(
     null
@@ -51,17 +62,56 @@ export default function DocumentList({
     setIsLoading(true);
     try {
       let docs: Document[] = [];
+      let sigs: Record<string, DocumentSignature[]> = {};
 
       if (showAllDocuments) {
-        docs = await getAllDocuments();
+        const results = await getAllDocuments();
+        docs = results.map((r) => r.document);
+        sigs = results.reduce((acc, r) => {
+          acc[r.document.id] = r.signatures;
+          return acc;
+        }, {} as Record<string, DocumentSignature[]>);
       } else if (showMyDocuments) {
         docs = await getDocumentsByOwner(account!);
       } else if (showSignerInbox) {
         docs = await getDocumentsToSign(account!);
+      } else if (showSignedDocuments) {
+        // Get all documents and filter for ones that have been signed by the current user
+        const results = await getAllDocuments();
+        docs = results
+          .filter((r) => {
+            // Check if any signature is from the current user
+            return r.signatures.some((sig) => {
+              try {
+                // Check if the signature is from an address or DID
+                if (sig.signerDid.startsWith("0x")) {
+                  return (
+                    ethers.getAddress(sig.signerDid) ===
+                    ethers.getAddress(account!)
+                  );
+                }
+                // For DIDs, we would need to check if the DID belongs to the current user
+                // This would require additional logic to get the user's DID
+                return false;
+              } catch {
+                return false;
+              }
+            });
+          })
+          .map((r) => r.document);
+
+        // Store signatures for these documents
+        sigs = results.reduce((acc, r) => {
+          if (docs.some((d) => d.id === r.document.id)) {
+            acc[r.document.id] = r.signatures;
+          }
+          return acc;
+        }, {} as Record<string, DocumentSignature[]>);
       }
 
       console.log("Retrieved documents:", docs);
       setDocuments(docs);
+      setDocumentSignatures(sigs);
     } catch (err) {
       console.error("Error fetching documents:", err);
     } finally {
@@ -72,6 +122,7 @@ export default function DocumentList({
     showAllDocuments,
     showMyDocuments,
     showSignerInbox,
+    showSignedDocuments,
     getAllDocuments,
     getDocumentsByOwner,
     getDocumentsToSign,
@@ -106,6 +157,8 @@ export default function DocumentList({
       </div>
     );
   }
+
+  console.log("selectedDocument", selectedDocument);
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -282,6 +335,7 @@ export default function DocumentList({
               setSelectedDocument(null);
             }}
             document={selectedDocument}
+            signatures={documentSignatures[selectedDocument.id] || []}
           />
           <SignDocumentModal
             isOpen={isSignModalOpen}

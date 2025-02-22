@@ -1,10 +1,11 @@
-import { Fragment } from "react";
+import { Fragment, useState, useEffect } from "react";
 import { Dialog, Transition } from "@headlessui/react";
 import { Document, DocumentSignature } from "../types/documents";
 import {
   formatHash,
   formatDocumentType,
   formatDocumentStatus,
+  formatSignatureType,
 } from "../utils/formatters";
 
 interface DocumentDetailsModalProps {
@@ -20,6 +21,38 @@ export default function DocumentDetailsModal({
   document,
   signatures = [],
 }: DocumentDetailsModalProps) {
+  const [copiedDID, setCopiedDID] = useState<string | null>(null);
+
+  // Debug logging
+  useEffect(() => {
+    if (signatures.length > 0) {
+      console.log("Received signatures:", signatures);
+    }
+  }, [signatures]);
+
+  const copyToClipboard = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedDID(text);
+      setTimeout(() => setCopiedDID(null), 2000);
+    } catch (err) {
+      console.error("Failed to copy text: ", err);
+    }
+  };
+
+  const formatSignatureType = (type: string): string => {
+    try {
+      // If it's a bytes32 hex string, try to decode it
+      if (type.startsWith("0x")) {
+        return formatDocumentType(type);
+      }
+      return type;
+    } catch (err) {
+      console.error("Error formatting signature type:", err);
+      return type;
+    }
+  };
+
   if (!document) return null;
 
   return (
@@ -107,28 +140,93 @@ export default function DocumentDetailsModal({
                     </p>
                   </div>
 
-                  {signatures.length > 0 && (
+                  {signatures && signatures.length > 0 && (
                     <div>
-                      <h4 className="font-medium text-gray-700">Signatures</h4>
-                      <div className="mt-2 space-y-2">
+                      <h4 className="font-medium text-gray-700 mb-3">
+                        Signatures ({signatures.length})
+                      </h4>
+                      <div className="mt-2 space-y-3">
                         {signatures.map((sig, index) => (
                           <div
                             key={index}
-                            className="p-3 bg-gray-50 rounded-lg text-sm"
+                            className="p-4 bg-gray-50 rounded-lg text-sm border border-gray-200"
                           >
-                            <p>
-                              <span className="font-medium">Signer: </span>
-                              <span className="font-mono">{sig.signerDid}</span>
-                            </p>
-                            <p>
-                              <span className="font-medium">Type: </span>
-                              {formatDocumentType(sig.signatureType)}
-                            </p>
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="flex items-center space-x-2">
+                                <span className="font-medium text-gray-700">
+                                  Signer:
+                                </span>
+                                <span className="font-mono">
+                                  {sig.signerDid.slice(0, 10)}...
+                                  {sig.signerDid.slice(-8)}
+                                </span>
+                                <button
+                                  onClick={() => copyToClipboard(sig.signerDid)}
+                                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                                  title="Copy DID"
+                                >
+                                  {copiedDID === sig.signerDid ? (
+                                    <svg
+                                      className="w-4 h-4 text-green-500"
+                                      fill="none"
+                                      stroke="currentColor"
+                                      viewBox="0 0 24 24"
+                                    >
+                                      <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        strokeWidth={2}
+                                        d="M5 13l4 4L19 7"
+                                      />
+                                    </svg>
+                                  ) : (
+                                    <svg
+                                      className="w-4 h-4"
+                                      fill="none"
+                                      stroke="currentColor"
+                                      viewBox="0 0 24 24"
+                                    >
+                                      <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        strokeWidth={2}
+                                        d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"
+                                      />
+                                    </svg>
+                                  )}
+                                </button>
+                              </div>
+                              <span className="text-gray-500 text-xs">
+                                {new Date(
+                                  sig.timestamp * 1000
+                                ).toLocaleString()}
+                              </span>
+                            </div>
+                            <div className="flex items-center space-x-2 mb-2">
+                              <span className="font-medium text-gray-700">
+                                Type:
+                              </span>
+                              <span
+                                className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                  formatSignatureType(sig.signatureType) ===
+                                  "APPROVE"
+                                    ? "bg-green-100 text-green-800"
+                                    : formatSignatureType(sig.signatureType) ===
+                                      "REJECT"
+                                    ? "bg-red-100 text-red-800"
+                                    : "bg-blue-100 text-blue-800"
+                                }`}
+                              >
+                                {formatSignatureType(sig.signatureType)}
+                              </span>
+                            </div>
                             {sig.metadata && (
-                              <p>
-                                <span className="font-medium">Comment: </span>
+                              <div className="mt-2 text-gray-600 bg-white p-2 rounded border border-gray-100">
+                                <span className="font-medium text-gray-700">
+                                  Comment:
+                                </span>{" "}
                                 {sig.metadata}
-                              </p>
+                              </div>
                             )}
                           </div>
                         ))}

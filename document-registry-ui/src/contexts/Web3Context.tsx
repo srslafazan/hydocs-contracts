@@ -35,52 +35,60 @@ export function Web3Provider({ children }: { children: ReactNode }) {
   const [isConnecting, setIsConnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const updateSigner = async (provider: BrowserProvider) => {
-    try {
-      const newSigner = await provider.getSigner();
-      setSigner(newSigner);
-      // Get the address from the signer
-      const address = await newSigner.getAddress();
-      setAccount(address);
-    } catch (err) {
-      console.error("Failed to get signer:", err);
-      setSigner(null);
-      setAccount(null);
-    }
-  };
-
   useEffect(() => {
-    if (window.ethereum) {
-      const provider = new BrowserProvider(window.ethereum);
-      setProvider(provider);
+    const initProvider = async () => {
+      try {
+        if (window.ethereum) {
+          const provider = new BrowserProvider(window.ethereum);
+          setProvider(provider);
+          console.log("Web3 provider initialized");
 
-      // Handle account changes
-      window.ethereum.on("accountsChanged", async (accounts: string[]) => {
-        if (accounts.length > 0) {
-          await updateSigner(provider);
-        } else {
-          setAccount(null);
-          setSigner(null);
-        }
-      });
+          // Handle account changes
+          window.ethereum.on("accountsChanged", async (accounts: string[]) => {
+            console.log("Account changed:", accounts);
+            if (accounts.length > 0) {
+              try {
+                const newSigner = await provider.getSigner();
+                setSigner(newSigner);
+                setAccount(accounts[0]);
+              } catch (err) {
+                console.error("Error getting signer:", err);
+                setSigner(null);
+                setAccount(null);
+              }
+            } else {
+              setSigner(null);
+              setAccount(null);
+            }
+          });
 
-      // Handle chain changes
-      window.ethereum.on("chainChanged", () => {
-        window.location.reload();
-      });
+          // Handle chain changes
+          window.ethereum.on("chainChanged", () => {
+            console.log("Chain changed, reloading...");
+            window.location.reload();
+          });
 
-      // Check if already connected
-      provider
-        .listAccounts()
-        .then(async (accounts) => {
-          if (accounts.length > 0) {
-            await updateSigner(provider);
+          // Check if already connected
+          try {
+            const accounts = await provider.listAccounts();
+            if (accounts.length > 0) {
+              const newSigner = await provider.getSigner();
+              setSigner(newSigner);
+              setAccount(accounts[0].address);
+              console.log("Found connected account:", accounts[0].address);
+            }
+          } catch (err) {
+            console.error("Error checking accounts:", err);
           }
-        })
-        .catch((err) => {
-          console.error("Error checking accounts:", err);
-        });
-    }
+        } else {
+          console.log("No ethereum provider found");
+        }
+      } catch (err) {
+        console.error("Error initializing Web3:", err);
+      }
+    };
+
+    initProvider();
 
     return () => {
       if (window.ethereum) {

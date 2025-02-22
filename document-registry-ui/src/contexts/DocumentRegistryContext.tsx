@@ -61,7 +61,9 @@ interface DocumentRegistryContextType {
   error: Error | null;
 
   // New functions
-  getAllDocuments: () => Promise<Document[]>;
+  getAllDocuments: () => Promise<
+    { document: Document; signatures: DocumentSignature[] }[]
+  >;
   getDocumentsToSign: (address: string) => Promise<Document[]>;
 }
 
@@ -79,18 +81,37 @@ export function DocumentRegistryProvider({
   const [error, setError] = useState<Error | null>(null);
 
   const getDocumentRegistryContract = useCallback(() => {
-    if (!signer) throw new Error("No signer available");
+    if (!provider) {
+      console.log("No provider available");
+      throw new Error("No provider available");
+    }
+
+    // For read operations, use provider if no signer is available
+    if (!signer) {
+      console.log("Using provider for read-only operations");
+      return new Contract(
+        DOCUMENT_CONTRACT_ADDRESS,
+        DocumentRegistryABI.abi,
+        provider
+      );
+    }
+
+    console.log("Using signer for contract operations");
     return new Contract(
       DOCUMENT_CONTRACT_ADDRESS,
       DocumentRegistryABI.abi,
       signer
     );
-  }, [signer]);
+  }, [signer, provider]);
 
   const getDIDRegistryContract = useCallback(() => {
-    if (!signer) throw new Error("No signer available");
+    // For read operations, use provider if no signer is available
+    if (!signer && provider) {
+      return new Contract(DID_CONTRACT_ADDRESS, DIDRegistryABI.abi, provider);
+    }
+    if (!signer) throw new Error("No provider or signer available");
     return new Contract(DID_CONTRACT_ADDRESS, DIDRegistryABI.abi, signer);
-  }, [signer]);
+  }, [signer, provider]);
 
   const registerDocument = useCallback(
     async (
@@ -391,11 +412,17 @@ export function DocumentRegistryProvider({
     [getDocumentRegistryContract, getDocument, provider]
   );
 
-  const getAllDocuments = useCallback(async (): Promise<Document[]> => {
-    const contract = await getDocumentRegistryContract();
-    if (!contract || !provider) return [];
+  const getAllDocuments = useCallback(async (): Promise<
+    { document: Document; signatures: DocumentSignature[] }[]
+  > => {
+    if (!provider) {
+      console.log("No provider available yet");
+      return [];
+    }
 
     try {
+      const contract = getDocumentRegistryContract();
+
       const filter = {
         address: await contract.getAddress(),
         topics: [
@@ -409,21 +436,41 @@ export function DocumentRegistryProvider({
         "Getting all documents from contract:",
         await contract.getAddress()
       );
-      const logs = await provider.getLogs(filter);
-      console.log("Found", logs.length, "document registration events");
 
-      const documentPromises = logs.map(async (log) => {
-        const documentId = log.topics[1];
-        return getDocument(documentId);
-      });
+      try {
+        const logs = await provider.getLogs(filter);
+        console.log("Found", logs.length, "document registration events");
 
-      const documents = await Promise.all(documentPromises);
-      return documents.filter((doc): doc is Document => doc !== null);
+        const documentPromises = logs.map(async (log) => {
+          const documentId = log.topics[1];
+          try {
+            const document = await getDocument(documentId);
+            const signatures = await getSignatures(documentId);
+            return { document, signatures };
+          } catch (err) {
+            console.error(`Error fetching document ${documentId}:`, err);
+            return null;
+          }
+        });
+
+        const results = await Promise.all(documentPromises);
+        return results.filter(
+          (
+            result
+          ): result is {
+            document: Document;
+            signatures: DocumentSignature[];
+          } => result !== null
+        );
+      } catch (err) {
+        console.error("Error fetching logs:", err);
+        return [];
+      }
     } catch (error) {
       console.error("Error getting all documents:", error);
       return [];
     }
-  }, [provider, getDocument, getDocumentRegistryContract]);
+  }, [provider, getDocument, getSignatures, getDocumentRegistryContract]);
 
   const getDocumentsToSign = useCallback(
     async (address: string): Promise<Document[]> => {
@@ -449,17 +496,19 @@ export function DocumentRegistryProvider({
         console.log("Total documents found:", allDocs.length);
 
         const docsToSign = await Promise.all(
-          allDocs.map(async (doc) => {
+          allDocs.map(async (result) => {
             console.log("\nChecking document:", {
-              id: doc.id,
-              type: doc.documentType,
-              status: doc.status,
+              id: result.document.id,
+              type: result.document.documentType,
+              status: result.document.status,
             });
 
-            const requiredSigners = await getRequiredSigners(doc.id);
+            const requiredSigners = await getRequiredSigners(
+              result.document.id
+            );
             console.log("Required signers:", requiredSigners);
 
-            const signatures = await getSignatures(doc.id);
+            const signatures = result.signatures;
             console.log("Existing signatures:", signatures);
 
             // Helper function to check if a value is an Ethereum address
@@ -508,15 +557,16 @@ export function DocumentRegistryProvider({
               }
             });
             console.log("Has already signed:", hasSigned);
-            console.log("Document status:", doc.status);
+            console.log("Document status:", result.document.status);
 
             if (
               isRequiredSigner &&
               !hasSigned &&
-              formatDocumentStatus(doc.status) !== DocumentStatus.REVOKED
+              formatDocumentStatus(result.document.status) !==
+                DocumentStatus.REVOKED
             ) {
               console.log("Document requires signature from current user");
-              return doc;
+              return result.document;
             }
             console.log(
               "Document does not require signature from current user"

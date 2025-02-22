@@ -48,3 +48,39 @@ export const formatDocumentStatus = (statusHash: string): string => {
 
   return statusMap[statusHash] || "Unknown";
 };
+
+// Helper function to format signature type
+export const formatSignatureType = (typeHash: string): string => {
+  // Map of known signature type hashes to their string values
+  const signatureTypeMap: { [key: string]: string } = {
+    [ethers.id("APPROVE")]: "APPROVE",
+    [ethers.id("REJECT")]: "REJECT",
+    [ethers.id("ACKNOWLEDGE")]: "ACKNOWLEDGE",
+  };
+
+  try {
+    // First check if it's a known signature type
+    if (signatureTypeMap[typeHash]) {
+      return signatureTypeMap[typeHash];
+    }
+
+    // If it's a bytes32 hex string, try to decode it
+    if (typeHash.startsWith("0x")) {
+      // Try to decode as UTF-8
+      try {
+        const decoded = ethers.toUtf8String(typeHash).trim().replace(/\0/g, "");
+        if (decoded && /^[\x20-\x7E]*$/.test(decoded)) {
+          return decoded;
+        }
+      } catch {
+        // If UTF-8 decoding fails, show truncated hex
+        return `${typeHash.slice(0, 6)}...${typeHash.slice(-4)}`;
+      }
+    }
+
+    return typeHash;
+  } catch (err) {
+    console.error("Error formatting signature type:", err);
+    return "Unknown";
+  }
+};
