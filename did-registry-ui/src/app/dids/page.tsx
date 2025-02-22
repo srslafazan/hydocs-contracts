@@ -19,6 +19,18 @@ function DIDList() {
   const [dids, setDids] = useState<DIDInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [copiedDID, setCopiedDID] = useState<string | null>(null);
+
+  // Copy to clipboard function
+  const copyToClipboard = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedDID(text);
+      setTimeout(() => setCopiedDID(null), 2000); // Reset after 2 seconds
+    } catch (err) {
+      console.error("Failed to copy text: ", err);
+    }
+  };
 
   useEffect(() => {
     async function loadDIDs() {
@@ -181,8 +193,47 @@ function DIDList() {
               <tbody className="bg-white divide-y divide-gray-200">
                 {dids.map((did) => (
                   <tr key={did.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap font-mono text-sm text-gray-900">
-                      {did.id.slice(0, 10)}...{did.id.slice(-8)}
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center space-x-2">
+                        <span className="font-mono text-sm text-gray-900">
+                          {did.id.slice(0, 10)}...{did.id.slice(-8)}
+                        </span>
+                        <button
+                          onClick={() => copyToClipboard(did.id)}
+                          className="text-gray-400 hover:text-gray-600 transition-colors"
+                          title="Copy DID"
+                        >
+                          {copiedDID === did.id ? (
+                            <svg
+                              className="w-5 h-5 text-green-500"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M5 13l4 4L19 7"
+                              />
+                            </svg>
+                          ) : (
+                            <svg
+                              className="w-5 h-5"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"
+                              />
+                            </svg>
+                          )}
+                        </button>
+                      </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap font-mono text-sm text-gray-900">
                       {did.owner.slice(0, 6)}...{did.owner.slice(-4)}
