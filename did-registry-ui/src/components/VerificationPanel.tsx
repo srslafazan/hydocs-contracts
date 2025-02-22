@@ -166,7 +166,7 @@ export function VerificationPanel({ didId }: VerificationPanelProps) {
             value={metadata}
             onChange={(e) => setMetadata(e.target.value)}
             placeholder="Enter details about the verification process and documents checked"
-            className="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 h-24"
+            className="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 h-24 whitespace-pre-wrap break-words resize-y"
           />
         </div>
 
