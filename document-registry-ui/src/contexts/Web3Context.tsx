@@ -39,9 +39,13 @@ export function Web3Provider({ children }: { children: ReactNode }) {
     try {
       const newSigner = await provider.getSigner();
       setSigner(newSigner);
+      // Get the address from the signer
+      const address = await newSigner.getAddress();
+      setAccount(address);
     } catch (err) {
       console.error("Failed to get signer:", err);
       setSigner(null);
+      setAccount(null);
     }
   };
 
@@ -53,15 +57,7 @@ export function Web3Provider({ children }: { children: ReactNode }) {
       // Handle account changes
       window.ethereum.on("accountsChanged", async (accounts: string[]) => {
         if (accounts.length > 0) {
-          const address = accounts[0];
-          if (typeof address === "string") {
-            setAccount(address);
-            await updateSigner(provider);
-          } else {
-            console.error("Invalid account address type:", typeof address);
-            setAccount(null);
-            setSigner(null);
-          }
+          await updateSigner(provider);
         } else {
           setAccount(null);
           setSigner(null);
@@ -74,19 +70,16 @@ export function Web3Provider({ children }: { children: ReactNode }) {
       });
 
       // Check if already connected
-      provider.listAccounts().then(async (accounts) => {
-        if (accounts.length > 0) {
-          const address = accounts[0];
-          if (typeof address === "string") {
-            setAccount(address);
+      provider
+        .listAccounts()
+        .then(async (accounts) => {
+          if (accounts.length > 0) {
             await updateSigner(provider);
-          } else {
-            console.error("Invalid account address type:", typeof address);
-            setAccount(null);
-            setSigner(null);
           }
-        }
-      });
+        })
+        .catch((err) => {
+          console.error("Error checking accounts:", err);
+        });
     }
 
     return () => {
@@ -111,16 +104,8 @@ export function Web3Provider({ children }: { children: ReactNode }) {
         method: "eth_requestAccounts",
       });
 
-      if (accounts.length > 0) {
-        const address = accounts[0];
-        if (typeof address === "string") {
-          setAccount(address);
-          if (provider) {
-            await updateSigner(provider);
-          }
-        } else {
-          throw new Error("Invalid account address type: " + typeof address);
-        }
+      if (accounts.length > 0 && provider) {
+        await updateSigner(provider);
       }
     } catch (err: any) {
       setError(err.message);
