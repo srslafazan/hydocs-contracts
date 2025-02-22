@@ -21,6 +21,7 @@ import {
   DocumentStatus,
 } from "../types/documents";
 import { ethers } from "ethers";
+import { formatDocumentStatus } from "../utils/formatters";
 
 interface DocumentRegistryContextType {
   // Document Registration
@@ -427,6 +428,7 @@ export function DocumentRegistryProvider({
   const getDocumentsToSign = useCallback(
     async (address: string): Promise<Document[]> => {
       const contract = await getDocumentRegistryContract();
+      const didContract = await getDIDRegistryContract();
       if (!contract || !provider || !address) {
         console.log("Missing dependencies:", {
           contract: !!contract,
@@ -437,6 +439,11 @@ export function DocumentRegistryProvider({
       }
 
       try {
+        // Get the user's DID if they have one
+        const userDid = await didContract.getDIDByAddress(address);
+        console.log("User DID:", userDid);
+        console.log("User address:", address);
+
         console.log("Fetching documents to sign for address:", address);
         const allDocs = await getAllDocuments();
         console.log("Total documents found:", allDocs.length);
@@ -455,22 +462,58 @@ export function DocumentRegistryProvider({
             const signatures = await getSignatures(doc.id);
             console.log("Existing signatures:", signatures);
 
-            // Check if the address is a required signer and hasn't signed yet
-            const isRequiredSigner = requiredSigners.some(
-              (signer) => signer.toLowerCase() === address.toLowerCase()
-            );
+            // Helper function to check if a value is an Ethereum address
+            const isAddress = (value: string): boolean => {
+              try {
+                ethers.getAddress(value);
+                return true;
+              } catch {
+                return false;
+              }
+            };
+
+            // Check if either the address or DID is a required signer
+            const isRequiredSigner = requiredSigners.some((signer) => {
+              if (isAddress(signer)) {
+                // If signer is an address, compare with user's address
+                try {
+                  return (
+                    ethers.getAddress(signer) === ethers.getAddress(address)
+                  );
+                } catch {
+                  return false;
+                }
+              } else {
+                // If signer is a DID, compare with user's DID
+                return userDid && signer === userDid;
+              }
+            });
             console.log("Is required signer:", isRequiredSigner);
 
-            const hasSigned = signatures.some(
-              (sig) => sig.signerDid.toLowerCase() === address.toLowerCase()
-            );
+            // Check if either the address or DID has already signed
+            const hasSigned = signatures.some((sig) => {
+              if (isAddress(sig.signerDid)) {
+                // If signature is an address, compare with user's address
+                try {
+                  return (
+                    ethers.getAddress(sig.signerDid) ===
+                    ethers.getAddress(address)
+                  );
+                } catch {
+                  return false;
+                }
+              } else {
+                // If signature is a DID, compare with user's DID
+                return userDid && sig.signerDid === userDid;
+              }
+            });
             console.log("Has already signed:", hasSigned);
             console.log("Document status:", doc.status);
 
             if (
               isRequiredSigner &&
               !hasSigned &&
-              doc.status !== DocumentStatus.REVOKED
+              formatDocumentStatus(doc.status) !== DocumentStatus.REVOKED
             ) {
               console.log("Document requires signature from current user");
               return doc;
@@ -498,6 +541,7 @@ export function DocumentRegistryProvider({
     [
       provider,
       getDocumentRegistryContract,
+      getDIDRegistryContract,
       getAllDocuments,
       getRequiredSigners,
       getSignatures,

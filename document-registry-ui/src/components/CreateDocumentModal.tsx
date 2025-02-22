@@ -42,10 +42,12 @@ export default function CreateDocumentModal({
       // Convert documentType to bytes32
       const documentTypeBytes = ethers.id(formData.documentType);
 
-      // Convert requiredSigners to bytes32 array
-      const requiredSignersBytes = formData.requiredSigners.map((signer) =>
-        signer.startsWith("0x") ? signer : ethers.id(signer)
-      );
+      // Filter out empty lines and convert requiredSigners to bytes32 array
+      const requiredSignersBytes = formData.requiredSigners
+        .filter((signer) => signer.trim().length > 0)
+        .map((signer) =>
+          signer.startsWith("0x") ? signer : ethers.id(signer)
+        );
 
       console.log("Registering document with params:", {
         contentHash: contentHashBytes,
@@ -81,6 +83,24 @@ export default function CreateDocumentModal({
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleTextareaKeyDown = (
+    e: React.KeyboardEvent<HTMLTextAreaElement>
+  ) => {
+    if (e.key === "Enter") {
+      // Prevent form submission on Enter
+      e.stopPropagation();
+    }
+  };
+
+  const handleSignersChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const text = e.target.value;
+    const lines = text.split("\n");
+    setFormData({
+      ...formData,
+      requiredSigners: lines,
+    });
   };
 
   return (
@@ -214,26 +234,20 @@ export default function CreateDocumentModal({
                       htmlFor="requiredSigners"
                       className="block text-sm font-medium text-gray-700"
                     >
-                      Required Signers (DID IDs, one per line)
+                      Required Signers (DID IDs or addresses, one per line)
                     </label>
                     <textarea
                       id="requiredSigners"
                       className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
                       rows={3}
                       value={formData.requiredSigners.join("\n")}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          requiredSigners: e.target.value
-                            .split("\n")
-                            .filter(Boolean),
-                        })
-                      }
-                      placeholder="Enter DID IDs (0x...) or text that will be hashed, one per line"
+                      onChange={handleSignersChange}
+                      onKeyDown={handleTextareaKeyDown}
+                      placeholder="Enter Ethereum addresses (0x...) or DID IDs, one per line"
                     />
                     <p className="mt-1 text-xs text-gray-500">
-                      You can enter either hex DID IDs starting with 0x or text
-                      that will be hashed
+                      Press Enter to add more signers. Each line will be treated
+                      as a separate signer.
                     </p>
                   </div>
 
