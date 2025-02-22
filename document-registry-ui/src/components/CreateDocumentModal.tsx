@@ -3,33 +3,35 @@ import { Dialog, Transition } from "@headlessui/react";
 import { useDocumentRegistry } from "../contexts/DocumentRegistryContext";
 import { DocumentType } from "../types/documents";
 
-interface CreateDocumentModalProps {
+export interface CreateDocumentModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onSuccess?: () => Promise<void>;
 }
 
 export default function CreateDocumentModal({
   isOpen,
   onClose,
+  onSuccess,
 }: CreateDocumentModalProps) {
-  const { registerDocument } = useDocumentRegistry();
   const [formData, setFormData] = useState({
     contentHash: "",
     documentType: DocumentType.GENERAL,
-    expiresAt: "",
     metadata: "",
+    expiresAt: "",
     requiredSigners: [] as string[],
   });
-  const [isLoading, setIsLoading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { registerDocument } = useDocumentRegistry();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
+    setIsSubmitting(true);
 
     try {
       const expiresAtTimestamp = formData.expiresAt
         ? Math.floor(new Date(formData.expiresAt).getTime() / 1000)
-        : 0;
+        : Math.floor(Date.now() / 1000) + 86400 * 365; // Default to 1 year
 
       await registerDocument(
         formData.contentHash,
@@ -39,11 +41,19 @@ export default function CreateDocumentModal({
         formData.requiredSigners
       );
 
+      onSuccess?.();
       onClose();
-    } catch (error) {
-      console.error("Error creating document:", error);
+      setFormData({
+        contentHash: "",
+        documentType: DocumentType.GENERAL,
+        metadata: "",
+        expiresAt: "",
+        requiredSigners: [],
+      });
+    } catch (err) {
+      console.error("Error creating document:", err);
     } finally {
-      setIsLoading(false);
+      setIsSubmitting(false);
     }
   };
 
@@ -83,13 +93,17 @@ export default function CreateDocumentModal({
 
                 <form onSubmit={handleSubmit} className="mt-4 space-y-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700">
+                    <label
+                      htmlFor="contentHash"
+                      className="block text-sm font-medium text-gray-700"
+                    >
                       Content Hash
                     </label>
                     <input
                       type="text"
+                      id="contentHash"
                       required
-                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
                       value={formData.contentHash}
                       onChange={(e) =>
                         setFormData({
@@ -97,15 +111,21 @@ export default function CreateDocumentModal({
                           contentHash: e.target.value,
                         })
                       }
+                      placeholder="0x..."
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700">
+                    <label
+                      htmlFor="documentType"
+                      className="block text-sm font-medium text-gray-700"
+                    >
                       Document Type
                     </label>
                     <select
-                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                      id="documentType"
+                      required
+                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
                       value={formData.documentType}
                       onChange={(e) =>
                         setFormData({
@@ -123,12 +143,35 @@ export default function CreateDocumentModal({
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700">
-                      Expiration Date
+                    <label
+                      htmlFor="metadata"
+                      className="block text-sm font-medium text-gray-700"
+                    >
+                      Metadata
                     </label>
                     <input
-                      type="datetime-local"
-                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                      type="text"
+                      id="metadata"
+                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                      value={formData.metadata}
+                      onChange={(e) =>
+                        setFormData({ ...formData, metadata: e.target.value })
+                      }
+                      placeholder="Additional information about the document"
+                    />
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor="expiresAt"
+                      className="block text-sm font-medium text-gray-700"
+                    >
+                      Expiration Date (Optional)
+                    </label>
+                    <input
+                      type="date"
+                      id="expiresAt"
+                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
                       value={formData.expiresAt}
                       onChange={(e) =>
                         setFormData({ ...formData, expiresAt: e.target.value })
@@ -137,25 +180,15 @@ export default function CreateDocumentModal({
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700">
-                      Metadata
-                    </label>
-                    <textarea
-                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                      rows={3}
-                      value={formData.metadata}
-                      onChange={(e) =>
-                        setFormData({ ...formData, metadata: e.target.value })
-                      }
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">
+                    <label
+                      htmlFor="requiredSigners"
+                      className="block text-sm font-medium text-gray-700"
+                    >
                       Required Signers (DID IDs, one per line)
                     </label>
                     <textarea
-                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                      id="requiredSigners"
+                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
                       rows={3}
                       value={formData.requiredSigners.join("\n")}
                       onChange={(e) =>
@@ -166,27 +199,28 @@ export default function CreateDocumentModal({
                             .filter(Boolean),
                         })
                       }
+                      placeholder="Enter DID IDs, one per line"
                     />
                   </div>
 
                   <div className="mt-6 flex justify-end space-x-3">
                     <button
                       type="button"
-                      className="inline-flex justify-center rounded-md border border-transparent bg-gray-100 px-4 py-2 text-sm font-medium text-gray-900 hover:bg-gray-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-500 focus-visible:ring-offset-2"
+                      className="inline-flex justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
                       onClick={onClose}
                     >
                       Cancel
                     </button>
                     <button
                       type="submit"
-                      disabled={isLoading}
-                      className={`inline-flex justify-center rounded-md border border-transparent px-4 py-2 text-sm font-medium text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 ${
-                        isLoading
-                          ? "bg-indigo-400 cursor-not-allowed"
-                          : "bg-indigo-600 hover:bg-indigo-700 focus-visible:ring-indigo-500"
+                      disabled={isSubmitting}
+                      className={`inline-flex justify-center rounded-md border border-transparent px-4 py-2 text-sm font-medium text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+                        isSubmitting
+                          ? "bg-blue-400 cursor-not-allowed"
+                          : "bg-blue-600 hover:bg-blue-700"
                       }`}
                     >
-                      {isLoading ? "Creating..." : "Create Document"}
+                      {isSubmitting ? "Creating..." : "Create Document"}
                     </button>
                   </div>
                 </form>
