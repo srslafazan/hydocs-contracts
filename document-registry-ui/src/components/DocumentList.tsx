@@ -3,6 +3,31 @@ import { useDocumentRegistry } from "../contexts/DocumentRegistryContext";
 import { Document, DocumentStatus, DocumentType } from "../types/documents";
 import CreateDocumentModal from "./CreateDocumentModal";
 import { useWeb3 } from "../contexts/Web3Context";
+import { ethers } from "ethers";
+
+// Helper function to format hash values
+const formatHash = (hash: string) => {
+  try {
+    // If it's a bytes32 hex string, try to convert it to UTF-8
+    if (hash.startsWith("0x")) {
+      // First try to decode as UTF-8
+      try {
+        const decoded = ethers.toUtf8String(hash).trim().replace(/\0/g, "");
+        if (decoded && /^[\x20-\x7E]*$/.test(decoded)) {
+          // Check if result contains only printable characters
+          return decoded;
+        }
+      } catch {
+        // If UTF-8 decoding fails, show truncated hex
+        return `${hash.slice(0, 6)}...${hash.slice(-4)}`;
+      }
+    }
+    return hash;
+  } catch (err) {
+    console.error("Error formatting hash:", err);
+    return hash;
+  }
+};
 
 export default function DocumentList() {
   const [documents, setDocuments] = useState<Document[]>([]);
@@ -107,6 +132,9 @@ export default function DocumentList() {
                   Document ID
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Content Hash
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Type
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -124,10 +152,25 @@ export default function DocumentList() {
               {documents.map((doc) => (
                 <tr key={doc.id}>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                    {doc.id.slice(0, 8)}...
+                    <div className="group relative">
+                      <span className="cursor-help">{formatHash(doc.id)}</span>
+                      <span className="invisible group-hover:visible absolute z-10 bg-black text-white text-xs rounded py-1 px-2 -mt-8">
+                        {doc.id}
+                      </span>
+                    </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {doc.documentType}
+                    <div className="group relative">
+                      <span className="cursor-help">
+                        {formatHash(doc.contentHash)}
+                      </span>
+                      <span className="invisible group-hover:visible absolute z-10 bg-black text-white text-xs rounded py-1 px-2 -mt-8">
+                        {doc.contentHash}
+                      </span>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {formatHash(doc.documentType)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span
@@ -140,11 +183,11 @@ export default function DocumentList() {
                           : "bg-yellow-100 text-yellow-800"
                       }`}
                     >
-                      {doc.status}
+                      {formatHash(doc.status)}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {new Date(doc.createdAt * 1000).toLocaleDateString()}
+                    {new Date(doc.createdAt * 1000).toLocaleString()}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     <button
