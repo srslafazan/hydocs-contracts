@@ -22,26 +22,26 @@ export function DIDViewer({ did, verifications }: DIDViewerProps) {
   };
 
   return (
-    <div className="space-y-8">
-      <div className="bg-white p-6 rounded-lg shadow-md border border-gray-200">
-        <h2 className="text-2xl font-bold text-blue-800 mb-6">DID Details</h2>
+    <div className="space-y-6">
+      <div className="bg-white p-4 rounded-lg shadow-md border border-gray-200">
+        <h2 className="text-2xl font-bold text-blue-800 mb-4">DID Details</h2>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="bg-gray-50 p-4 rounded-md">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="bg-gray-50 p-3 rounded-md">
             <h4 className="text-sm font-medium text-blue-600">
               DID Identifier
             </h4>
             <p className="mt-1 text-base text-gray-900 break-all">{did.id}</p>
           </div>
 
-          <div className="bg-gray-50 p-4 rounded-md">
+          <div className="bg-gray-50 p-3 rounded-md">
             <h4 className="text-sm font-medium text-blue-600">Owner</h4>
             <p className="mt-1 text-base text-gray-900 font-mono break-all">
               {did.owner}
             </p>
           </div>
 
-          <div className="bg-gray-50 p-4 rounded-md md:col-span-2">
+          <div className="bg-gray-50 p-3 rounded-md md:col-span-2">
             <h4 className="text-sm font-medium text-blue-600">Identifiers</h4>
             <ul className="mt-2 space-y-2">
               {did.identifiers.map((identifier, index) => (
@@ -55,7 +55,7 @@ export function DIDViewer({ did, verifications }: DIDViewerProps) {
             </ul>
           </div>
 
-          <div className="bg-gray-50 p-4 rounded-md">
+          <div className="bg-gray-50 p-3 rounded-md">
             <h4 className="text-sm font-medium text-blue-600">Status</h4>
             <p className="mt-1 text-base">
               <span
@@ -70,14 +70,14 @@ export function DIDViewer({ did, verifications }: DIDViewerProps) {
             </p>
           </div>
 
-          <div className="bg-gray-50 p-4 rounded-md">
+          <div className="bg-gray-50 p-3 rounded-md">
             <h4 className="text-sm font-medium text-blue-600">Created</h4>
             <p className="mt-1 text-base text-gray-900">
               {formatDate(did.created)}
             </p>
           </div>
 
-          <div className="bg-gray-50 p-4 rounded-md">
+          <div className="bg-gray-50 p-3 rounded-md">
             <h4 className="text-sm font-medium text-blue-600">Last Updated</h4>
             <p className="mt-1 text-base text-gray-900">
               {formatDate(did.updated)}
@@ -88,8 +88,8 @@ export function DIDViewer({ did, verifications }: DIDViewerProps) {
         {did.active &&
           typeof window !== "undefined" &&
           window.ethereum?.selectedAddress === did.owner && (
-            <div className="mt-8 pt-6 border-t border-gray-200">
-              <h3 className="text-xl font-bold text-blue-800 mb-4">
+            <div className="mt-6 pt-4 border-t border-gray-200">
+              <h3 className="text-xl font-bold text-blue-800 mb-3">
                 Update DID
               </h3>
               <DIDForm mode="update" didId={did.id} />
@@ -98,11 +98,11 @@ export function DIDViewer({ did, verifications }: DIDViewerProps) {
       </div>
 
       {verifications.length > 0 && (
-        <div className="bg-white p-6 rounded-lg shadow-md border border-gray-200 mt-6">
-          <h3 className="text-xl font-bold text-blue-800 mb-4">
+        <div className="bg-white p-4 rounded-lg shadow-md border border-gray-200 mt-4">
+          <h3 className="text-xl font-bold text-blue-800 mb-3">
             Identity Verifications
           </h3>
-          <p className="text-gray-600 mb-6">
+          <p className="text-gray-600 mb-4">
             These verifications have been issued by authorized verifiers to
             certify your identity.
           </p>
@@ -127,7 +127,7 @@ export function DIDViewer({ did, verifications }: DIDViewerProps) {
               return (
                 <div
                   key={index}
-                  className={`border rounded-lg p-4 ${
+                  className={`border rounded-lg p-3 ${
                     isActive && !isExpired
                       ? "border-green-200 bg-green-50"
                       : "border-red-200 bg-red-50"
@@ -160,7 +160,7 @@ export function DIDViewer({ did, verifications }: DIDViewerProps) {
                   {parsedMetadata.details && (
                     <div className="mt-2 text-sm text-gray-700">
                       <p className="font-medium mb-1">Verification Notes:</p>
-                      <p className="bg-white p-3 rounded whitespace-pre-wrap break-words">
+                      <p className="bg-white p-2 rounded whitespace-pre-wrap break-words">
                         {parsedMetadata.details}
                       </p>
                     </div>

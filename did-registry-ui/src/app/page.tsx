@@ -18,9 +18,9 @@ export default function Home() {
   }, [currentDID, actions]);
 
   const renderHeader = () => (
-    <nav className="bg-gradient-to-r from-blue-600 to-blue-800 shadow-lg mb-12 p-4">
-      <div className="max-w-4xl mx-auto px-8">
-        <div className="flex justify-between h-20">
+    <nav className="bg-gradient-to-r from-blue-600 to-blue-800 shadow-lg mb-8 p-3">
+      <div className="max-w-4xl mx-auto px-4">
+        <div className="flex justify-between h-16">
           <div className="flex items-center">
             <h1 className="text-2xl font-semibold text-white">DID Registry</h1>
           </div>
@@ -28,7 +28,7 @@ export default function Home() {
             <div className="flex items-center">
               <button
                 onClick={() => setCurrentDID(null)}
-                className="px-6 py-3 text-sm bg-white text-blue-600 rounded-lg hover:bg-blue-50 transition-colors duration-200"
+                className="px-4 py-2 text-sm bg-white text-blue-600 rounded-lg hover:bg-blue-50 transition-colors duration-200"
               >
                 + Create New Identity
               </button>
@@ -77,9 +77,9 @@ export default function Home() {
   );
 
   return (
-    <main className="min-h-screen bg-slate-100 p-4">
+    <main className="min-h-screen bg-slate-100 p-3">
       {renderHeader()}
-      <div className="max-w-4xl mx-auto px-8 py-12 space-y-12">
+      <div className="max-w-4xl mx-auto px-4 py-8 space-y-8">
         {!currentDID ? renderCreateIdentity() : renderIdentityDetails()}
         {renderFooter()}
       </div>
