@@ -91,13 +91,30 @@ export function AdminPanel() {
     setLoading(true);
     setError(null);
     try {
-      if (!ethers.utils.isAddress(addressToVerify)) {
-        throw new Error("Invalid Ethereum address");
+      let foundDidId: string | null = null;
+
+      // First, check if input is a valid Ethereum address
+      if (ethers.utils.isAddress(addressToVerify)) {
+        foundDidId = await actions.service.getDIDByOwner(addressToVerify);
       }
 
-      const foundDidId = await actions.service.getDIDByOwner(addressToVerify);
+      // If not found by address, try using the input directly as a DID
+      if (!foundDidId && addressToVerify.startsWith("0x")) {
+        try {
+          // Verify the DID exists by trying to get its owner
+          const owner = await actions.service.getDIDOwner(addressToVerify);
+          if (owner !== ethers.constants.AddressZero) {
+            foundDidId = addressToVerify;
+          }
+        } catch (err) {
+          console.error("Error checking DID:", err);
+        }
+      }
+
       if (!foundDidId) {
-        throw new Error("No DID found for this address");
+        throw new Error(
+          "No DID found. Please enter a valid Ethereum address or DID identifier."
+        );
       }
 
       setTargetDidId(foundDidId);
@@ -212,7 +229,7 @@ export function AdminPanel() {
               type="text"
               value={addressToVerify}
               onChange={(e) => setAddressToVerify(e.target.value)}
-              placeholder="Enter Ethereum address to verify"
+              placeholder="Enter Ethereum address or DID identifier"
               className="flex-1 p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
             />
             <button
