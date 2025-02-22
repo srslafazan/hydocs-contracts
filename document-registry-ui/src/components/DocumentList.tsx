@@ -14,6 +14,7 @@ import {
   formatHash,
   formatDocumentType,
   formatDocumentStatus,
+  formatSignatureType,
 } from "../utils/formatters";
 import { ethers } from "ethers";
 
@@ -33,6 +34,9 @@ export default function DocumentList({
   const [documents, setDocuments] = useState<Document[]>([]);
   const [documentSignatures, setDocumentSignatures] = useState<
     Record<string, DocumentSignature[]>
+  >({});
+  const [documentRequiredSigners, setDocumentRequiredSigners] = useState<
+    Record<string, string[]>
   >({});
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [selectedDocument, setSelectedDocument] = useState<Document | null>(
@@ -63,6 +67,7 @@ export default function DocumentList({
     try {
       let docs: Document[] = [];
       let sigs: Record<string, DocumentSignature[]> = {};
+      let reqSigners: Record<string, string[]> = {};
 
       if (showAllDocuments) {
         const results = await getAllDocuments();
@@ -71,47 +76,61 @@ export default function DocumentList({
           acc[r.document.id] = r.signatures;
           return acc;
         }, {} as Record<string, DocumentSignature[]>);
+
+        // Get required signers for each document
+        await Promise.all(
+          docs.map(async (doc) => {
+            const signers = await getRequiredSigners(doc.id);
+            reqSigners[doc.id] = signers;
+          })
+        );
       } else if (showMyDocuments) {
         docs = await getDocumentsByOwner(account!);
-      } else if (showSignerInbox) {
-        docs = await getDocumentsToSign(account!);
-      } else if (showSignedDocuments) {
-        // Get all documents and filter for ones that have been signed by the current user
+      } else if (showSignerInbox || showSignedDocuments) {
         const results = await getAllDocuments();
-        docs = results
-          .filter((r) => {
-            // Check if any signature is from the current user
-            return r.signatures.some((sig) => {
-              try {
-                // Check if the signature is from an address or DID
-                if (sig.signerDid.startsWith("0x")) {
-                  return (
-                    ethers.getAddress(sig.signerDid) ===
-                    ethers.getAddress(account!)
-                  );
+        if (showSignerInbox) {
+          docs = await getDocumentsToSign(account!);
+        } else {
+          docs = results
+            .filter((r) => {
+              return r.signatures.some((sig) => {
+                try {
+                  if (sig.signerDid.startsWith("0x")) {
+                    return (
+                      ethers.getAddress(sig.signerDid) ===
+                      ethers.getAddress(account!)
+                    );
+                  }
+                  return false;
+                } catch {
+                  return false;
                 }
-                // For DIDs, we would need to check if the DID belongs to the current user
-                // This would require additional logic to get the user's DID
-                return false;
-              } catch {
-                return false;
-              }
-            });
-          })
-          .map((r) => r.document);
+              });
+            })
+            .map((r) => r.document);
+        }
 
-        // Store signatures for these documents
+        // Get signatures and required signers for filtered documents
         sigs = results.reduce((acc, r) => {
           if (docs.some((d) => d.id === r.document.id)) {
             acc[r.document.id] = r.signatures;
           }
           return acc;
         }, {} as Record<string, DocumentSignature[]>);
+
+        // Get required signers for filtered documents
+        await Promise.all(
+          docs.map(async (doc) => {
+            const signers = await getRequiredSigners(doc.id);
+            reqSigners[doc.id] = signers;
+          })
+        );
       }
 
       console.log("Retrieved documents:", docs);
       setDocuments(docs);
       setDocumentSignatures(sigs);
+      setDocumentRequiredSigners(reqSigners);
     } catch (err) {
       console.error("Error fetching documents:", err);
     } finally {
@@ -126,6 +145,7 @@ export default function DocumentList({
     getAllDocuments,
     getDocumentsByOwner,
     getDocumentsToSign,
+    getRequiredSigners,
   ]);
 
   useEffect(() => {
@@ -146,6 +166,14 @@ export default function DocumentList({
   const handleSignDocument = async (doc: Document) => {
     setSelectedDocument(doc);
     setIsSignModalOpen(true);
+  };
+
+  // Helper function to format signer display
+  const formatSigner = (signer: string) => {
+    if (signer.startsWith("0x")) {
+      return `${signer.slice(0, 6)}...${signer.slice(-4)}`;
+    }
+    return signer;
   };
 
   if (!account) {
@@ -213,13 +241,16 @@ export default function DocumentList({
                   Document ID
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Content Hash
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Type
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Status
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Pending Signers
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Signatures Received
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Created
@@ -230,91 +261,129 @@ export default function DocumentList({
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {documents.map((doc) => (
-                <tr key={doc.id}>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                    <div className="group relative">
-                      <span className="cursor-help">{formatHash(doc.id)}</span>
-                      <span className="invisible group-hover:visible absolute z-10 bg-black text-white text-xs rounded py-1 px-2 -mt-8">
-                        {doc.id}
+              {documents.map((doc) => {
+                const signatures = documentSignatures[doc.id] || [];
+                const requiredSigners = documentRequiredSigners[doc.id] || [];
+                const pendingSigners = requiredSigners.filter(
+                  (signer) =>
+                    !signatures.some(
+                      (sig) =>
+                        sig.signerDid.toLowerCase() === signer.toLowerCase()
+                    )
+                );
+
+                return (
+                  <tr key={doc.id}>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                      <div className="group relative">
+                        <span className="cursor-help">
+                          {formatHash(doc.id)}
+                        </span>
+                        <span className="invisible group-hover:visible absolute z-10 bg-black text-white text-xs rounded py-1 px-2 -mt-8">
+                          {doc.id}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {formatDocumentType(doc.documentType)}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span
+                        className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full
+                        ${
+                          formatDocumentStatus(doc.status).toLowerCase() ===
+                          DocumentStatus.ACTIVE.toLowerCase()
+                            ? "bg-green-100 text-green-800"
+                            : formatDocumentStatus(doc.status).toLowerCase() ===
+                              DocumentStatus.REVOKED.toLowerCase()
+                            ? "bg-red-100 text-red-800"
+                            : "bg-yellow-100 text-yellow-800"
+                        }`}
+                      >
+                        {formatDocumentStatus(doc.status)}
                       </span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    <div className="group relative">
-                      <span className="cursor-help">
-                        {formatHash(doc.contentHash)}
-                      </span>
-                      <span className="invisible group-hover:visible absolute z-10 bg-black text-white text-xs rounded py-1 px-2 -mt-8">
-                        {doc.contentHash}
-                      </span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {formatDocumentType(doc.documentType)}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span
-                      className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full
-                      ${
-                        formatDocumentStatus(doc.status).toLowerCase() ===
-                        DocumentStatus.ACTIVE.toLowerCase()
-                          ? "bg-green-100 text-green-800"
-                          : formatDocumentStatus(doc.status).toLowerCase() ===
-                            DocumentStatus.REVOKED.toLowerCase()
-                          ? "bg-red-100 text-red-800"
-                          : "bg-yellow-100 text-yellow-800"
-                      }`}
-                    >
-                      {formatDocumentStatus(doc.status)}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {new Date(doc.createdAt * 1000).toLocaleString()}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    <button
-                      className="text-indigo-600 hover:text-indigo-900 mr-4"
-                      onClick={() => handleViewDocument(doc)}
-                    >
-                      View
-                    </button>
-                    <button
-                      className="text-green-600 hover:text-green-900 mr-4"
-                      onClick={() => handleSignDocument(doc)}
-                    >
-                      Sign
-                    </button>
-                    <button
-                      className={`${
-                        formatDocumentStatus(doc.status) ===
-                        DocumentStatus.REVOKED
-                          ? "text-gray-400 cursor-not-allowed"
-                          : "text-red-600 hover:text-red-900"
-                      }`}
-                      onClick={async () => {
-                        try {
-                          if (
-                            formatDocumentStatus(doc.status) !==
-                            DocumentStatus.REVOKED
-                          ) {
-                            await revokeDocument(doc.id);
-                            await refreshDocuments();
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-500">
+                      <div className="space-y-1">
+                        {pendingSigners.length > 0 ? (
+                          pendingSigners.map((signer, idx) => (
+                            <div key={idx} className="flex items-center">
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800">
+                                {formatSigner(signer)}
+                              </span>
+                            </div>
+                          ))
+                        ) : (
+                          <span className="text-green-600">
+                            No pending signers
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-500">
+                      <div className="space-y-1">
+                        {signatures.map((sig, idx) => (
+                          <div
+                            key={idx}
+                            className="flex items-center space-x-2"
+                          >
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                              {formatSigner(sig.signerDid)}
+                            </span>
+                            <span className="text-xs text-gray-500">
+                              ({formatSignatureType(sig.signatureType)})
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {new Date(doc.createdAt * 1000).toLocaleString()}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                      <button
+                        className="text-indigo-600 hover:text-indigo-900 mr-4"
+                        onClick={() => handleViewDocument(doc)}
+                      >
+                        View
+                      </button>
+                      <button
+                        className="text-green-600 hover:text-green-900 mr-4"
+                        onClick={() => handleSignDocument(doc)}
+                      >
+                        Sign
+                      </button>
+                      <button
+                        className={`${
+                          formatDocumentStatus(doc.status) ===
+                          DocumentStatus.REVOKED
+                            ? "text-gray-400 cursor-not-allowed"
+                            : "text-red-600 hover:text-red-900"
+                        }`}
+                        onClick={async () => {
+                          try {
+                            if (
+                              formatDocumentStatus(doc.status) !==
+                              DocumentStatus.REVOKED
+                            ) {
+                              await revokeDocument(doc.id);
+                              await refreshDocuments();
+                            }
+                          } catch (err) {
+                            console.error("Error revoking document:", err);
                           }
-                        } catch (err) {
-                          console.error("Error revoking document:", err);
+                        }}
+                        disabled={
+                          formatDocumentStatus(doc.status) ===
+                          DocumentStatus.REVOKED
                         }
-                      }}
-                      disabled={
-                        formatDocumentStatus(doc.status) ===
-                        DocumentStatus.REVOKED
-                      }
-                    >
-                      Revoke
-                    </button>
-                  </td>
-                </tr>
-              ))}
+                      >
+                        Revoke
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         )}
