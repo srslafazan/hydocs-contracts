@@ -15,6 +15,7 @@ export default function DocumentList() {
     revokeDocument,
     getDocument,
     error: contractError,
+    getDocumentsByOwner,
   } = useDocumentRegistry();
 
   const refreshDocuments = useCallback(async () => {
@@ -22,29 +23,14 @@ export default function DocumentList() {
 
     setIsLoading(true);
     try {
-      // TODO: Implement fetching document list
-      // For now, we'll use mock data
-      const mockDocuments: Document[] = [
-        {
-          id: "0x1234567890abcdef",
-          contentHash: "0xabcdef1234567890",
-          documentType: DocumentType.GENERAL,
-          owner: account,
-          did: "did:eth:" + account,
-          createdAt: Math.floor(Date.now() / 1000) - 86400, // 1 day ago
-          expiresAt: Math.floor(Date.now() / 1000) + 86400 * 30, // 30 days from now
-          status: DocumentStatus.ACTIVE,
-          metadata: "Sample document",
-          version: 1,
-        },
-      ];
-      setDocuments(mockDocuments);
+      const docs = await getDocumentsByOwner(account);
+      setDocuments(docs);
     } catch (err) {
       console.error("Error fetching documents:", err);
     } finally {
       setIsLoading(false);
     }
-  }, [account]);
+  }, [account, getDocumentsByOwner]);
 
   useEffect(() => {
     refreshDocuments();
@@ -94,7 +80,7 @@ export default function DocumentList() {
             className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
             onClick={() => setIsCreateModalOpen(true)}
           >
-            Create Document
+            Register Document
           </button>
         </div>
       </div>

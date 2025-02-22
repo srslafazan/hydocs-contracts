@@ -16,6 +16,7 @@ import DIDRegistryABI from "../contracts/DIDRegistry.json";
 import { Contract } from "ethers";
 import { useWeb3 } from "./Web3Context";
 import { Document, DocumentSignature } from "../types/documents";
+import { ethers } from "ethers";
 
 interface DocumentRegistryContextType {
   // Document Registration
@@ -25,7 +26,7 @@ interface DocumentRegistryContextType {
     expiresAt: number,
     metadata: string,
     requiredSigners: string[]
-  ) => Promise<void>;
+  ) => Promise<ethers.ContractTransactionResponse>;
 
   // Document Signing
   signDocument: (
@@ -43,6 +44,12 @@ interface DocumentRegistryContextType {
   getSignatures: (documentId: string) => Promise<DocumentSignature[]>;
   getRequiredSigners: (documentId: string) => Promise<string[]>;
   hasAllRequiredSignatures: (documentId: string) => Promise<boolean>;
+  getDocumentsByOwner: (owner: string) => Promise<Document[]>;
+  getDocumentsByTimeRange: (
+    startTime: number,
+    endTime: number,
+    owner?: string
+  ) => Promise<Document[]>;
 
   // Loading States
   isLoading: boolean;
@@ -83,7 +90,7 @@ export function DocumentRegistryProvider({
       expiresAt: number,
       metadata: string,
       requiredSigners: string[]
-    ) => {
+    ): Promise<ethers.ContractTransactionResponse> => {
       try {
         setIsLoading(true);
         setError(null);
@@ -95,7 +102,7 @@ export function DocumentRegistryProvider({
           metadata,
           requiredSigners
         );
-        await tx.wait();
+        return tx;
       } catch (err: any) {
         setError(err);
         throw err;
@@ -250,6 +257,120 @@ export function DocumentRegistryProvider({
     [getDocumentRegistryContract]
   );
 
+  const getDocumentsByOwner = useCallback(
+    async (owner: string): Promise<Document[]> => {
+      try {
+        setIsLoading(true);
+        setError(null);
+        const contract = getDocumentRegistryContract();
+
+        // Get event signature hash
+        const eventSignature =
+          "DocumentRegistered(bytes32,bytes32,bytes32,address,bytes32,uint256,uint256)";
+        const eventTopic = ethers.id(eventSignature);
+
+        // Create filter with topics
+        const ownerTopic = ethers.zeroPadValue(owner.toLowerCase(), 32);
+        const events = await provider?.getLogs({
+          address: contract.target,
+          topics: [eventTopic, null, null, ownerTopic],
+          fromBlock: 0,
+          toBlock: "latest",
+        });
+
+        if (!events) return [];
+
+        // Fetch full document details for each event
+        const documents = await Promise.all(
+          events.map(async (event) => {
+            const parsedLog = contract.interface.parseLog({
+              topics: event.topics as string[],
+              data: event.data,
+            });
+            if (!parsedLog) return null;
+            const documentId = parsedLog.args[0] as string;
+            return await getDocument(documentId);
+          })
+        );
+
+        // Filter out null values and sort by creation time
+        const validDocuments = documents.filter(
+          (doc): doc is Document => doc !== null
+        );
+        validDocuments.sort((a, b) => b.createdAt - a.createdAt);
+
+        return validDocuments;
+      } catch (err: any) {
+        setError(err);
+        throw err;
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [getDocumentRegistryContract, getDocument, provider]
+  );
+
+  const getDocumentsByTimeRange = useCallback(
+    async (
+      startTime: number,
+      endTime: number,
+      owner?: string
+    ): Promise<Document[]> => {
+      try {
+        setIsLoading(true);
+        setError(null);
+        const contract = getDocumentRegistryContract();
+
+        // Get event signature hash
+        const eventSignature =
+          "DocumentRegistered(bytes32,bytes32,bytes32,address,bytes32,uint256,uint256)";
+        const eventTopic = ethers.id(eventSignature);
+
+        // Create filter with topics
+        const ownerTopic = owner
+          ? ethers.zeroPadValue(owner.toLowerCase(), 32)
+          : null;
+        const events = await provider?.getLogs({
+          address: contract.target,
+          topics: [eventTopic, null, null, ownerTopic],
+          fromBlock: 0,
+          toBlock: "latest",
+        });
+
+        if (!events) return [];
+
+        // Parse logs and filter by timestamp
+        const documents = await Promise.all(
+          events.map(async (event) => {
+            const parsedLog = contract.interface.parseLog({
+              topics: event.topics as string[],
+              data: event.data,
+            });
+            if (!parsedLog) return null;
+            const timestamp = Number(parsedLog.args[5]); // createdAt is at index 5
+            if (timestamp < startTime || timestamp > endTime) return null;
+            const documentId = parsedLog.args[0] as string;
+            return await getDocument(documentId);
+          })
+        );
+
+        // Filter out null values and sort by creation time
+        const validDocuments = documents.filter(
+          (doc): doc is Document => doc !== null
+        );
+        validDocuments.sort((a, b) => b.createdAt - a.createdAt);
+
+        return validDocuments;
+      } catch (err: any) {
+        setError(err);
+        throw err;
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [getDocumentRegistryContract, getDocument, provider]
+  );
+
   return (
     <DocumentRegistryContext.Provider
       value={{
@@ -261,6 +382,8 @@ export function DocumentRegistryProvider({
         getSignatures,
         getRequiredSigners,
         hasAllRequiredSignatures,
+        getDocumentsByOwner,
+        getDocumentsByTimeRange,
         isLoading,
         error,
       }}

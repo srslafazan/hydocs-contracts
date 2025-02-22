@@ -30,13 +30,14 @@ interface IDocument {
         bytes32 contentHash,
         bytes32 documentType,
         address indexed owner,
-        bytes32 did,
+        bytes32 indexed did,
+        uint256 createdAt,
         uint256 expiresAt
     );
 
     event DocumentSigned(
         bytes32 indexed documentId,
-        bytes32 signerDid,
+        bytes32 indexed signerDid,
         bytes32 signatureType,
         uint256 timestamp
     );

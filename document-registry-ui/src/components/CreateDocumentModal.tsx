@@ -2,6 +2,7 @@ import { Fragment, useState } from "react";
 import { Dialog, Transition } from "@headlessui/react";
 import { useDocumentRegistry } from "../contexts/DocumentRegistryContext";
 import { DocumentType } from "../types/documents";
+import { ethers } from "ethers";
 
 export interface CreateDocumentModalProps {
   isOpen: boolean;
@@ -33,15 +34,40 @@ export default function CreateDocumentModal({
         ? Math.floor(new Date(formData.expiresAt).getTime() / 1000)
         : Math.floor(Date.now() / 1000) + 86400 * 365; // Default to 1 year
 
-      await registerDocument(
-        formData.contentHash,
-        formData.documentType,
-        expiresAtTimestamp,
-        formData.metadata,
-        formData.requiredSigners
+      // Convert contentHash to bytes32
+      const contentHashBytes = formData.contentHash.startsWith("0x")
+        ? formData.contentHash
+        : ethers.id(formData.contentHash);
+
+      // Convert documentType to bytes32
+      const documentTypeBytes = ethers.id(formData.documentType);
+
+      // Convert requiredSigners to bytes32 array
+      const requiredSignersBytes = formData.requiredSigners.map((signer) =>
+        signer.startsWith("0x") ? signer : ethers.id(signer)
       );
 
-      onSuccess?.();
+      console.log("Registering document with params:", {
+        contentHash: contentHashBytes,
+        documentType: documentTypeBytes,
+        expiresAt: expiresAtTimestamp,
+        metadata: formData.metadata,
+        requiredSigners: requiredSignersBytes,
+      });
+
+      const tx = await registerDocument(
+        contentHashBytes,
+        documentTypeBytes,
+        expiresAtTimestamp,
+        formData.metadata,
+        requiredSignersBytes
+      );
+
+      console.log("Transaction submitted:", tx.hash);
+      const receipt = await tx.wait();
+      console.log("Transaction confirmed:", receipt);
+
+      await onSuccess?.();
       onClose();
       setFormData({
         contentHash: "",
@@ -97,7 +123,7 @@ export default function CreateDocumentModal({
                       htmlFor="contentHash"
                       className="block text-sm font-medium text-gray-700"
                     >
-                      Content Hash
+                      Content Hash or Text
                     </label>
                     <input
                       type="text"
@@ -111,8 +137,12 @@ export default function CreateDocumentModal({
                           contentHash: e.target.value,
                         })
                       }
-                      placeholder="0x..."
+                      placeholder="Enter content hash (0x...) or text that will be hashed"
                     />
+                    <p className="mt-1 text-xs text-gray-500">
+                      You can enter either a hex hash starting with 0x or text
+                      that will be hashed
+                    </p>
                   </div>
 
                   <div>
@@ -199,8 +229,12 @@ export default function CreateDocumentModal({
                             .filter(Boolean),
                         })
                       }
-                      placeholder="Enter DID IDs, one per line"
+                      placeholder="Enter DID IDs (0x...) or text that will be hashed, one per line"
                     />
+                    <p className="mt-1 text-xs text-gray-500">
+                      You can enter either hex DID IDs starting with 0x or text
+                      that will be hashed
+                    </p>
                   </div>
 
                   <div className="mt-6 flex justify-end space-x-3">
@@ -220,7 +254,7 @@ export default function CreateDocumentModal({
                           : "bg-blue-600 hover:bg-blue-700"
                       }`}
                     >
-                      {isSubmitting ? "Creating..." : "Create Document"}
+                      {isSubmitting ? "Registering..." : "Register Document"}
                     </button>
                   </div>
                 </form>

@@ -113,12 +113,16 @@ contract DocumentRegistry is Initializable, AccessControlUpgradeable, PausableUp
             requiredSignerDids
         );
 
+        // Store the timestamp before emitting to ensure consistency
+        uint256 timestamp = block.timestamp;
+        
         emit DocumentRegistered(
             documentId,
             contentHash,
             documentType,
             msg.sender,
             documents[documentId].did,
+            timestamp,
             expiresAt
         );
         return documentId;
