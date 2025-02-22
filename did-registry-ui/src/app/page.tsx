@@ -4,7 +4,6 @@ import { DIDForm } from "../components/DIDForm";
 import { DIDViewer } from "../components/DIDViewer";
 import { useState, useEffect } from "react";
 import { useDID } from "../contexts/DIDContext";
-import Link from "next/link";
 
 import "./globals.css";
 
@@ -18,38 +17,8 @@ export default function Home() {
     }
   }, [currentDID, actions]);
 
-  const renderHeader = () => (
-    <nav className="bg-gradient-to-r from-blue-600 to-blue-800 shadow-lg mb-8 p-3">
-      <div className="max-w-4xl mx-auto px-4">
-        <div className="flex justify-between h-16">
-          <div className="flex items-center space-x-8">
-            <Link href="/" className="text-2xl font-semibold text-white">
-              DID Registry
-            </Link>
-            <Link
-              href="/dids"
-              className="text-white hover:text-blue-100 transition-colors"
-            >
-              View All DIDs
-            </Link>
-          </div>
-          {currentDID && (
-            <div className="flex items-center">
-              <button
-                onClick={() => setCurrentDID(null)}
-                className="px-4 py-2 text-sm bg-white text-blue-600 rounded-lg hover:bg-blue-50 transition-colors duration-200"
-              >
-                + Create New Identity
-              </button>
-            </div>
-          )}
-        </div>
-      </div>
-    </nav>
-  );
-
   const renderCreateIdentity = () => (
-    <div className="bg-white shadow-lg rounded-xl overflow-hidden transition-all duration-200 hover:shadow-xl border border-slate-100 p-4">
+    <div className="bg-white shadow-lg rounded-xl overflow-hidden transition-all duration-200 hover:shadow-xl border border-slate-100">
       <div className="px-8 py-6 bg-gradient-to-r from-blue-600 to-blue-800">
         <h2 className="text-xl font-semibold text-white">
           Create New Identity
@@ -62,7 +31,7 @@ export default function Home() {
   );
 
   const renderIdentityDetails = () => (
-    <div className="bg-white shadow-lg rounded-xl overflow-hidden transition-all duration-200 hover:shadow-xl border border-slate-100 p-4">
+    <div className="bg-white shadow-lg rounded-xl overflow-hidden transition-all duration-200 hover:shadow-xl border border-slate-100">
       <div className="px-8 py-6 bg-gradient-to-r from-blue-600 to-blue-800">
         <h2 className="text-xl font-semibold text-white">Identity Details</h2>
       </div>
@@ -86,12 +55,9 @@ export default function Home() {
   );
 
   return (
-    <main className="min-h-screen bg-slate-100 p-3">
-      {renderHeader()}
-      <div className="max-w-4xl mx-auto px-4 py-8 space-y-8">
-        {!currentDID ? renderCreateIdentity() : renderIdentityDetails()}
-        {renderFooter()}
-      </div>
-    </main>
+    <div className="max-w-4xl mx-auto px-4 py-8 space-y-8">
+      {!currentDID ? renderCreateIdentity() : renderIdentityDetails()}
+      {renderFooter()}
+    </div>
   );
 }

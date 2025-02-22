@@ -5,6 +5,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { DIDProvider } from "../contexts/DIDContext";
 import { DIDRegistryService } from "../services/DIDRegistryService";
+import { TopNav } from "../components/TopNav";
 import { ethers } from "ethers";
 import { useState, useEffect } from "react";
 
@@ -92,6 +93,9 @@ function DIDProviderWrapper({ children }: { children: React.ReactNode }) {
 
   const handleAccountChange = async () => {
     try {
+      if (!window.ethereum) {
+        throw new Error("Please install MetaMask to use this application");
+      }
       const accounts = await window.ethereum.request({
         method: "eth_requestAccounts",
       });
@@ -173,25 +177,7 @@ function DIDProviderWrapper({ children }: { children: React.ReactNode }) {
     );
   }
 
-  return (
-    <div>
-      <div className="bg-slate-800 text-white py-2 px-4 text-sm">
-        <div className="max-w-3xl mx-auto flex justify-between items-center">
-          <span>
-            Connected: {selectedAccount.slice(0, 6)}...
-            {selectedAccount.slice(-4)}
-          </span>
-          <button
-            onClick={handleAccountChange}
-            className="text-sm text-slate-300 hover:text-white"
-          >
-            Switch Wallet
-          </button>
-        </div>
-      </div>
-      <DIDProvider service={service}>{children}</DIDProvider>
-    </div>
-  );
+  return <DIDProvider service={service}>{children}</DIDProvider>;
 }
 
 export default function RootLayout({
@@ -202,7 +188,12 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={inter.className}>
-        <DIDProviderWrapper>{children}</DIDProviderWrapper>
+        <DIDProviderWrapper>
+          <div className="min-h-screen bg-slate-100">
+            <TopNav />
+            {children}
+          </div>
+        </DIDProviderWrapper>
       </body>
     </html>
   );
