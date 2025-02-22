@@ -7,6 +7,7 @@ import {
   formatDocumentStatus,
   formatSignatureType,
 } from "../utils/formatters";
+import { useDocumentRegistry } from "../contexts/DocumentRegistryContext";
 
 interface DocumentDetailsModalProps {
   isOpen: boolean;
@@ -22,6 +23,8 @@ export default function DocumentDetailsModal({
   signatures = [],
 }: DocumentDetailsModalProps) {
   const [copiedDID, setCopiedDID] = useState<string | null>(null);
+  const [requiredSigners, setRequiredSigners] = useState<string[]>([]);
+  const { getRequiredSigners } = useDocumentRegistry();
 
   // Debug logging
   useEffect(() => {
@@ -29,6 +32,21 @@ export default function DocumentDetailsModal({
       console.log("Received signatures:", signatures);
     }
   }, [signatures]);
+
+  // Fetch required signers
+  useEffect(() => {
+    async function fetchRequiredSigners() {
+      if (document) {
+        try {
+          const signers = await getRequiredSigners(document.id);
+          setRequiredSigners(signers);
+        } catch (err) {
+          console.error("Error fetching required signers:", err);
+        }
+      }
+    }
+    fetchRequiredSigners();
+  }, [document, getRequiredSigners]);
 
   const copyToClipboard = async (text: string) => {
     try {
@@ -40,20 +58,27 @@ export default function DocumentDetailsModal({
     }
   };
 
-  const formatSignatureType = (type: string): string => {
-    try {
-      // If it's a bytes32 hex string, try to decode it
-      if (type.startsWith("0x")) {
-        return formatDocumentType(type);
-      }
-      return type;
-    } catch (err) {
-      console.error("Error formatting signature type:", err);
-      return type;
+  // Helper function to format signer display
+  const formatSigner = (signer: string) => {
+    if (signer.startsWith("0x")) {
+      return `${signer.slice(0, 10)}...${signer.slice(-8)}`;
     }
+    return signer;
+  };
+
+  // Helper function to check if a signer has signed
+  const hasSignerSigned = (signer: string) => {
+    return signatures.some(
+      (sig) => sig.signerDid.toLowerCase() === signer.toLowerCase()
+    );
   };
 
   if (!document) return null;
+
+  // Get pending signers
+  const pendingSigners = requiredSigners.filter(
+    (signer) => !hasSignerSigned(signer)
+  );
 
   return (
     <Transition appear show={isOpen} as={Fragment}>
@@ -157,8 +182,7 @@ export default function DocumentDetailsModal({
                                   Signer:
                                 </span>
                                 <span className="font-mono">
-                                  {sig.signerDid.slice(0, 10)}...
-                                  {sig.signerDid.slice(-8)}
+                                  {formatSigner(sig.signerDid)}
                                 </span>
                                 <button
                                   onClick={() => copyToClipboard(sig.signerDid)}
@@ -228,6 +252,68 @@ export default function DocumentDetailsModal({
                                 {sig.metadata}
                               </div>
                             )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {pendingSigners.length > 0 && (
+                    <div>
+                      <h4 className="font-medium text-gray-700 mb-3">
+                        Pending Signers ({pendingSigners.length})
+                      </h4>
+                      <div className="mt-2 space-y-2">
+                        {pendingSigners.map((signer, index) => (
+                          <div
+                            key={index}
+                            className="p-3 bg-yellow-50 rounded-lg text-sm border border-yellow-200"
+                          >
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center space-x-2">
+                                <span className="font-mono">
+                                  {formatSigner(signer)}
+                                </span>
+                                <button
+                                  onClick={() => copyToClipboard(signer)}
+                                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                                  title="Copy Address/DID"
+                                >
+                                  {copiedDID === signer ? (
+                                    <svg
+                                      className="w-4 h-4 text-green-500"
+                                      fill="none"
+                                      stroke="currentColor"
+                                      viewBox="0 0 24 24"
+                                    >
+                                      <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        strokeWidth={2}
+                                        d="M5 13l4 4L19 7"
+                                      />
+                                    </svg>
+                                  ) : (
+                                    <svg
+                                      className="w-4 h-4"
+                                      fill="none"
+                                      stroke="currentColor"
+                                      viewBox="0 0 24 24"
+                                    >
+                                      <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        strokeWidth={2}
+                                        d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"
+                                      />
+                                    </svg>
+                                  )}
+                                </button>
+                              </div>
+                              <span className="text-yellow-600 text-xs font-medium">
+                                Pending
+                              </span>
+                            </div>
                           </div>
                         ))}
                       </div>
