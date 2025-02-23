@@ -87,6 +87,23 @@ export default function DocumentList({
         );
       } else if (showMyDocuments) {
         docs = await getDocumentsByOwner(account!);
+        const allResults = await getAllDocuments();
+
+        // Get signatures for my documents
+        sigs = allResults.reduce((acc, r) => {
+          if (docs.some((d) => d.id === r.document.id)) {
+            acc[r.document.id] = r.signatures;
+          }
+          return acc;
+        }, {} as Record<string, DocumentSignature[]>);
+
+        // Get required signers for my documents
+        await Promise.all(
+          docs.map(async (doc) => {
+            const signers = await getRequiredSigners(doc.id);
+            reqSigners[doc.id] = signers;
+          })
+        );
       } else if (showSignerInbox || showSignedDocuments) {
         const results = await getAllDocuments();
         if (showSignerInbox) {
