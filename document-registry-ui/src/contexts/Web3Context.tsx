@@ -113,7 +113,9 @@ export function Web3Provider({ children }: { children: ReactNode }) {
       });
 
       if (accounts.length > 0 && provider) {
-        await updateSigner(provider);
+        const newSigner = await provider.getSigner();
+        setSigner(newSigner);
+        setAccount(accounts[0]);
       }
     } catch (err: any) {
       setError(err.message);
